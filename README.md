@@ -1,14 +1,14 @@
-# Unofficial D&D Claude Dungeon Master
-### *with Cinematic Display Companion — Couch Co-op Edition*
+# D&D 5e Dungeon Master (Google Antigravity & Claude Code)
+### *with Cinematic Display Companion, ngrok Remote Play & Full Thai/Unicode Support*
 > **Ruleset:** D&D 5e — **2014 (SRD 5.1)** by default; **2024 (SRD 5.2)** opt-in per campaign. Choose at `/dm:dnd new` time; legacy campaigns are auto-prompted to migrate (with backup) on first load. See the [Ruleset section](#ruleset) for mechanic differences and dataset details.
 
 <div align="center">
   <img src="skills/dnd/display/icons/logo_primary_fullcolor.png" width="280" alt="D20 Neural Core">
 </div>
 
-> Claude runs the game. You play. The TV shows the story. Your phone is your controller.
+> Antigravity / Claude runs the game. You play. The TV shows the story. Your phone is your controller.
 
-An unofficial D&D 5e (2014 ruleset / SRD 5.1) Dungeon Master skill for [Claude Code](https://claude.ai/code) — persistent campaigns, full 5e mechanics, and an optional cinematic display companion that streams typewriter narration, dice rolls, and live character stats to any screen — TV via Chromecast, tablet, phone, or second monitor — while players submit their actions from a phone or tablet.
+An unofficial D&D 5e (2014 & 2024 rulesets) Dungeon Master skill for **[Google Antigravity](https://github.com/google-deepmind)** and **[Claude Code](https://claude.ai/code)** — persistent campaigns, full 5e mechanics, and an optional cinematic display companion that streams typewriter narration, dice rolls, and live character stats to any screen (TV, tablet, phone, or second monitor) with one-click **ngrok internet tunneling**, full **Thai & Unicode language support**, and reactive **Autorun** mode.
 
 Built for groups who want a real DM experience without needing one at the table.
 
@@ -116,18 +116,40 @@ The Flask server receives narration text, player actions, dice results, and char
 
 ## Installation
 
-Install it as a Claude Code plugin:
+### 1. For Google Antigravity (AGY)
+
+Clone or copy this skill to your Antigravity global customizations folder:
+
+```bash
+# Global install (available across all projects/conversations)
+git clone https://github.com/noxhsxrk/antigravity-dnd-skill.git ~/.gemini/config/skills/dnd
+
+# Or copy into an existing workspace (.agents/skills/dnd/)
+mkdir -p .agents/skills && cp -R ~/.gemini/config/skills/dnd .agents/skills/
+```
+
+**Install dependencies (one-time):**
+```bash
+pip3 install --user --break-system-packages flask flask-cors numpy cryptography pymupdf
+```
+
+Then invoke in Antigravity by typing **`/dnd`** or **`/dm:dnd`**, or simply say *"เล่น D&D"* or *"let's play D&D"*.
+
+---
+
+### 2. For Claude Code
+
+Install as a Claude Code plugin:
 
 ```
 /plugin marketplace add neuralinitiative/claude-dnd-skill
 /plugin install dm@neural-initiative
 ```
 
-Then invoke it as **`/dm:dnd`** (plugin skills are namespaced `plugin:skill` — the `dm` plugin provides the `dnd` skill), or just describe what you want once a campaign is loaded. Update with `/plugin update dm`.
+Then invoke it as **`/dm:dnd`** (plugin skills are namespaced `plugin:skill`), or just describe what you want once a campaign is loaded. Update with `/plugin update dm`.
 
 ```bash
 # Optional — install the display-companion dependencies (one-time).
-# Core gameplay works without these; they power the live screen + audio.
 pip3 install flask flask-cors numpy cryptography
 ```
 
@@ -135,10 +157,7 @@ pip3 install flask flask-cors numpy cryptography
 > plugin-only — the old `~/.claude/skills/dnd` standalone (`/dnd`) is replaced by
 > the plugin (`/dm:dnd`). **Your campaigns and characters are untouched** — they
 > live under `~/.claude/dnd/` (or `$DND_CAMPAIGN_ROOT`), entirely separate from
-> the skill code. Install the plugin above, then run the one-time helper to carry
-> over device pairings / TLS certs and retire the old install:
-> `python3 <plugin>/skills/dnd/scripts/migrate_v1_to_v2.py`. Full guide:
-> **[MIGRATING.md](MIGRATING.md)**.
+> the skill code. Full guide: **[MIGRATING.md](MIGRATING.md)**.
 
 ---
 
@@ -354,17 +373,29 @@ pip3 install flask flask-cors numpy cryptography
 
 ### Starting the Display
 
-The display starts automatically when you answer **y** at the `/dm:dnd load` prompt. Or start it manually:
+The display starts automatically when you choose display mode at `/dm:dnd load` or `/dm:dnd new`. Or start it manually:
 
 ```bash
-# Local only (Mac/same machine) — HTTP, no cert setup
+# Local only (same machine) — HTTP
 bash ${CLAUDE_SKILL_DIR}/display/start-display.sh
 
-# LAN mode — HTTP, accessible to phones/tablets on your network
+# LAN mode — accessible to phones/tablets on your local network
 bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --lan
 
 # LAN mode with TLS — for public or untrusted networks
 bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --lan --tls
+
+# Internet mode with ngrok — forward to a public HTTPS URL for remote co-op
+bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --ngrok
+```
+
+#### Independent ngrok commands:
+```bash
+# Start ngrok tunnel for port 5001 (auto-starts display if not running)
+bash ${CLAUDE_SKILL_DIR}/display/start-ngrok.sh
+
+# Stop ngrok tunnel
+bash ${CLAUDE_SKILL_DIR}/display/stop-ngrok.sh
 ```
 
 Then open `http://localhost:5001` in your browser. HTTP is the default — no certificate warnings. For LAN devices use the IP URL printed at startup (e.g. `http://192.168.1.x:5001`). Use `--tls` only when the network is public or untrusted.
@@ -419,7 +450,7 @@ Each device has a **Settings** view with controls that tune the experience for t
 
 ### Autorun Mode
 
-Autorun is the primary way to run sessions with the companion UI. Once enabled, Claude drives the turn loop without requiring the DM to press Enter between each turn.
+Autorun is the primary way to run sessions with the companion UI. Once enabled, Antigravity or Claude drives the turn loop without requiring the DM to press Enter between each turn.
 
 ```
 /dm:dnd autorun on          # enable — 60s default countdown
@@ -427,13 +458,36 @@ Autorun is the primary way to run sessions with the companion UI. Once enabled, 
 /dm:dnd autorun off         # return to manual mode
 ```
 
-The countdown is configurable per-campaign by setting `autorun_interval: N` in `state.md → ## Session Flags`. To interrupt autorun from the Claude Code CLI, press **Ctrl+C** during the wait.
+* **In Google Antigravity:** Autorun executes as an asynchronous background task (`python3 display/autorun_wait.py`). When any player submits an action from the web companion (phone/tablet/PC), the task immediately finishes and delivers a reactive wake-up `<SYSTEM_MESSAGE>` to Antigravity, which resolves the action, narrates to the display, and restarts the wait loop automatically!
+* **In Claude Code:** Autorun runs as a blocking wait in the CLI turn loop until player input is detected or the countdown elapses.
+
+The countdown is configurable per-campaign by setting `autorun_interval: N` in `state.md → ## Session Flags`.
 
 **N-player threshold** — by default autorun fires when all known players are ready. For multi-device groups you can require only N players:
 
 ```bash
 python3 ${CLAUDE_SKILL_DIR}/display/push_stats.py --autorun-threshold 2  # fire when 2 ready
 python3 ${CLAUDE_SKILL_DIR}/display/push_stats.py --autorun-threshold 0  # reset to player count
+```
+
+---
+
+### Port & Process Management (Cheatsheet)
+
+Useful terminal commands to manage the display companion server (port 5001) and ngrok:
+
+```bash
+# Check all listening ports and their PIDs (macOS):
+sudo lsof -iTCP -sTCP:LISTEN -P -n
+
+# Check specifically what is running on port 5001:
+lsof -i :5001
+
+# Kill all processes listening on port 5001:
+kill -9 $(lsof -t -i:5001)
+
+# Check running D&D display app or ngrok processes:
+ps aux | grep -E "dnd-display-app|ngrok"
 ```
 
 ### DM Help & Tutor Mode
