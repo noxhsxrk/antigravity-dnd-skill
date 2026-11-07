@@ -151,6 +151,9 @@ revision_log: []
 *(leave empty until the first arc completes)*
 
 ## Session Flags
+- roll_mode: auto
+- autorun: true
+- autorun_interval: 60
 *(tutor_mode, autorun, autorun_interval, tts_voice, sfx_languages, autosave — session-scoped flags set via /dnd commands or by the display companion)*
 *(autosave: on|off — default on. Governs the behind-the-scenes continuity checkpoint (Live State Flags + graph + session tail). Toggle with /dm:dnd autosave on|off.)*
 

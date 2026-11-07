@@ -10,11 +10,12 @@ Full step-by-step procedures for all `/dm:dnd` slash commands. Load this file at
 1. **Session setup — call `AskUserQuestion`** with **two questions**:
 
    **Q1 *"Display & input mode?"***
+   - `Display + autorun (ngrok) (Recommended / Default)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --ngrok`, print public ngrok HTTPS URL, set `_display_running = true`, write `autorun: true` to `state.md → ## Session Flags`, then `python3 ${CLAUDE_SKILL_DIR}/display/push_stats.py --clear`. Always enter the autorun wait loop (`autorun_wait.py`) at the end of each turn.
+   - `Display + autorun (LAN)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --lan`, print both URLs, set `_display_running = true`, write `autorun: true` to `state.md → ## Session Flags`, then `--clear` as above.
+   - `Display (local)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh`, print URL, set `_display_running = true`, then `--clear` as above.
    - `No display` → continue without display.
-   - `Display (local)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh`, print URL, set `_display_running = true`, then `python3 ${CLAUDE_SKILL_DIR}/display/push_stats.py --clear`.
-   - `Display (LAN)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --lan`, print both URLs, set `_display_running = true`, then `--clear` as above.
-   - `Display (ngrok / remote)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --ngrok` (or `bash ${CLAUDE_SKILL_DIR}/display/start-ngrok.sh`), print public ngrok HTTPS URL, set `_display_running = true`, then `--clear` as above.
-   - `Display + autorun (LAN / ngrok)` → as **Display (LAN / ngrok)**, and write `autorun: true` to `state.md → ## Session Flags`.
+
+   *(Standing rule: Default to `Display + autorun (ngrok)` whenever requested or dismissed so players can play directly from mobile devices seamlessly).*
 
    **Q2 *"Dice rolls?"*** — set how PC d20s are handled (see SKILL.md "Dice convention"):
    - `Players roll their own` (default) → write `roll_mode: players` to `state.md → ## Session Flags`. You will call for each PC roll and wait — never auto-roll a PC.
@@ -72,11 +73,12 @@ Full step-by-step procedures for all `/dm:dnd` slash commands. Load this file at
 1. **Session setup — call `AskUserQuestion`** with **two questions** (not typed y/n prompts):
 
    **Q1 *"Display & input mode?"***
-   - `No display` → continue without display.
+   - `Display + autorun (ngrok) (Recommended / Default)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --ngrok` (or `bash ${CLAUDE_SKILL_DIR}/display/start-ngrok.sh`), print public ngrok HTTPS URL, set `_display_running = true`, write `autorun: true` to `state.md → ## Session Flags`; enter the autorun wait (`autorun_wait.py`) after the recap and at the end of every turn.
+   - `Display + autorun (LAN)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --lan`, print both URLs, set `_display_running = true`, write `autorun: true` to `state.md → ## Session Flags`; enter the autorun wait.
    - `Display (local)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh`, print URL, set `_display_running = true`.
-   - `Display (LAN)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --lan`, print both URLs, set `_display_running = true`.
-   - `Display (ngrok / remote)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --ngrok` (or `bash ${CLAUDE_SKILL_DIR}/display/start-ngrok.sh`), print public ngrok HTTPS URL, set `_display_running = true`.
-   - `Display + autorun (LAN / ngrok)` → as **Display (LAN / ngrok)**, and also write `autorun: true` to `state.md → ## Session Flags`; enter the autorun wait after the recap.
+   - `No display` → continue without display.
+
+   *(Standing rule: Default to `Display + autorun (ngrok)` so players can immediately play via phone over internet).*
 
    **Q2 *"Dice rolls?"*** — confirm how PC d20s are handled this session (see SKILL.md "Dice convention"). Pre-fill the recommended option from the existing `roll_mode` in `state.md` if present, else `players`:
    - `Players roll their own` → write `roll_mode: players`. Call for each PC roll and wait — never auto-roll a PC.
