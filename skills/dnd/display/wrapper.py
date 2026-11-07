@@ -39,6 +39,7 @@ import signal
 import subprocess
 import sys
 import termios
+import unicodedata
 import time
 import tty
 import ssl
@@ -122,8 +123,16 @@ _PRINTABLE    = re.compile(
     "]"
 )
 _SHELL_CHARS  = re.compile(r'[$`\\;|&><()\[\]{}!]')  # no shell metacharacters
-_CHAR_NAME_RE = re.compile(r"^\w[\w '\-]{0,48}\w$|^\w{1,2}$", re.UNICODE)
 _ACTION_LINE  = re.compile(r"^\[([^\]]{1,50})\]:\s*(.{1,500})$")
+
+def _char_name_valid(name: str) -> bool:
+    if not name or len(name) > 50:
+        return False
+    for c in name:
+        cat = unicodedata.category(c)
+        if not (cat[0] in ("L", "N", "M") or c in (" ", "'", "-")):
+            return False
+    return True
 
 _MAX_LINES    = 8     # sanity cap — no party this large exists
 _MAX_LINE_LEN = 560   # [Name]: + 500 chars + slack
@@ -169,7 +178,7 @@ def _sanitize(raw: str) -> str | None:
         char_name = m.group(1).strip()
         action    = m.group(2).strip()
 
-        if not _CHAR_NAME_RE.match(char_name):
+        if not _char_name_valid(char_name):
             return None
 
         if known and char_name not in known and char_name != "Everybody":

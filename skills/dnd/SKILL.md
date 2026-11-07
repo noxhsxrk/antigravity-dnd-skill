@@ -270,19 +270,36 @@ At the start of each turn, run `check_input.py` before processing the player's m
 
 A line wrapped in double brackets — e.g. `[[Narration length for this turn: aim for ~250 words…]]` — is **not** a player action; it is a directive from the display's Narration slider. Treat it as a hard length budget for **this turn's** narration: write to roughly that word count, trimming description and pacing to fit, and never pad to reach it. The remaining `[Char]: …` lines are the actual player actions. (If the only thing returned is the `[[…]]` directive with no action lines, treat it as no player input.)
 
-**Autorun / taxi mode** (`autorun: true` in `state.md → ## Session Flags`):
+**Autorun / taxi mode in Antigravity & Claude Code** (`autorun: true` in `state.md → ## Session Flags`):
 
-When autorun is active, Claude drives the turn loop — no DM Enter required and no PTY wrapper needed. After completing each response, run this blocking wait as the very last Bash call of the response. The CLI shows the command text in the `⏺ Bash(...)` label — the comment on line 1 is what the DM sees while it blocks.
+When autorun is active, the AI DM drives the turn loop automatically — players can play entirely through the web companion UI (`http://localhost:5001` or ngrok URL) without needing to type in the chat!
 
-```bash
-# Autorun wait — Ctrl+C to return to manual mode
-AUTORUN=$(python3 ${CLAUDE_SKILL_DIR}/display/autorun_wait.py)
-echo "$AUTORUN"
-```
+1. **In Antigravity (Reactive Background Task):**
+   Launch `autorun_wait.py` as an asynchronous background task at the end of the turn using `run_command` with `WaitMsBeforeAsync: 500`:
+   ```bash
+   python3 ${CLAUDE_SKILL_DIR}/display/autorun_wait.py
+   ```
+   When a player submits an action on the companion UI (via phone, tablet, or web browser), `autorun_wait.py` detects the input in `.input_queue`, prints it, and exits immediately.
+   Antigravity will automatically receive a high-priority `<SYSTEM_MESSAGE>` with the task completion and the player's action (e.g. `[เนียม]: ...`), waking up the agent to resolve the turn.
 
-- If `AUTORUN` is non-empty: treat it as the player action for the next turn. Process immediately — no DM message needed. The content has already been sanitised by dnd-display-app.py before being written to the queue.
-- If `AUTORUN` is empty (timeout after 9 min): **silently restart the wait** — do not print anything, do not wait for a DM message. Just run the same Bash block again immediately. This keeps the loop alive indefinitely until a player submits or the DM intervenes.
-- If the DM sends a message mid-wait: the Bash is interrupted. **Before processing the DM's message, run `check_input.py` once.** If it returns content, that is queued player input that arrived during the gap — treat it as part of this turn alongside the DM's message (or as the primary action if the DM message is administrative). If it returns empty, proceed with the DM's message as the turn input. After resolving the DM's turn, restart the wait if `autorun: true` is still in state.md.
+2. **In Claude Code CLI (Synchronous blocking wait):**
+   ```bash
+   # Autorun wait — Ctrl+C to return to manual mode
+   AUTORUN=$(python3 ${CLAUDE_SKILL_DIR}/display/autorun_wait.py)
+   echo "$AUTORUN"
+   ```
+   - If `AUTORUN` is non-empty: treat it as the player action for the next turn. Process immediately.
+   - If `AUTORUN` is empty (timeout after 9 min): silently restart the wait.
+   - If the DM sends a message mid-wait: check `check_input.py` once.
+
+3. **Unicode & Thai Language Support:**
+   Character names in any script (including Thai vowels and tone marks like `เนียม`, Arabic, CJK, etc.) are fully supported via Unicode categories (`L`, `N`, `M`) in `dnd-display-app.py` and `wrapper.py`.
+
+4. **Internet / Remote Play with ngrok:**
+   To allow remote players to connect over the internet:
+   - Run `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --ngrok`
+   - Or start ngrok independently: `bash ${CLAUDE_SKILL_DIR}/display/start-ngrok.sh`
+   - Stop ngrok when finished: `bash ${CLAUDE_SKILL_DIR}/display/stop-ngrok.sh`
 
 Autorun security model: device approval in dnd-display-app.py gates who can write to the queue. Content is validated (character allowlist, structural format, printable ASCII, shell metachar strip) before being written. The Bash loop reads the pre-sanitised file — it does not execute it.
 

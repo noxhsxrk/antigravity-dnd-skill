@@ -13,7 +13,8 @@ Full step-by-step procedures for all `/dm:dnd` slash commands. Load this file at
    - `No display` → continue without display.
    - `Display (local)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh`, print URL, set `_display_running = true`, then `python3 ${CLAUDE_SKILL_DIR}/display/push_stats.py --clear`.
    - `Display (LAN)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --lan`, print both URLs, set `_display_running = true`, then `--clear` as above.
-   - `Display + autorun (LAN)` → as **Display (LAN)**, and write `autorun: true` to `state.md → ## Session Flags`.
+   - `Display (ngrok / remote)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --ngrok` (or `bash ${CLAUDE_SKILL_DIR}/display/start-ngrok.sh`), print public ngrok HTTPS URL, set `_display_running = true`, then `--clear` as above.
+   - `Display + autorun (LAN / ngrok)` → as **Display (LAN / ngrok)**, and write `autorun: true` to `state.md → ## Session Flags`.
 
    **Q2 *"Dice rolls?"*** — set how PC d20s are handled (see SKILL.md "Dice convention"):
    - `Players roll their own` (default) → write `roll_mode: players` to `state.md → ## Session Flags`. You will call for each PC roll and wait — never auto-roll a PC.
@@ -74,7 +75,8 @@ Full step-by-step procedures for all `/dm:dnd` slash commands. Load this file at
    - `No display` → continue without display.
    - `Display (local)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh`, print URL, set `_display_running = true`.
    - `Display (LAN)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --lan`, print both URLs, set `_display_running = true`.
-   - `Display + autorun (LAN)` → as **Display (LAN)**, and also write `autorun: true` to `state.md → ## Session Flags`; enter the autorun wait after the recap.
+   - `Display (ngrok / remote)` → `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --ngrok` (or `bash ${CLAUDE_SKILL_DIR}/display/start-ngrok.sh`), print public ngrok HTTPS URL, set `_display_running = true`.
+   - `Display + autorun (LAN / ngrok)` → as **Display (LAN / ngrok)**, and also write `autorun: true` to `state.md → ## Session Flags`; enter the autorun wait after the recap.
 
    **Q2 *"Dice rolls?"*** — confirm how PC d20s are handled this session (see SKILL.md "Dice convention"). Pre-fill the recommended option from the existing `roll_mode` in `state.md` if present, else `players`:
    - `Players roll their own` → write `roll_mode: players`. Call for each PC roll and wait — never auto-roll a PC.
@@ -900,26 +902,26 @@ Toggle tutor/learning mode. Write `tutor_mode: true/false` to `state.md` under `
 
 ## `/dm:dnd autorun on` / `/dm:dnd autorun off`
 
-Toggle autorun (taxi) mode — Claude drives the turn loop automatically when players submit via the display companion. No PTY wrapper required.
+Toggle autorun (taxi) mode — Antigravity & Claude Code drive the turn loop automatically when players submit via the display companion (`http://localhost:5001` or ngrok).
 
 **On:**
 1. Write `autorun: true` to `state.md → ## Session Flags`.
-2. **Check Bash permissions** — read `~/.claude/settings.json`. If `permissions.allow` does not include `"Bash"` (or `"Bash(*)"` or similar), add it automatically:
-   - Read the file, merge `"Bash"` into `permissions.allow`, write it back.
-   - Tell the DM: *"Added Bash to permissions.allow in ~/.claude/settings.json — autorun won't prompt for each wait. Restart this session for it to take effect if it doesn't immediately."*
-   - If it was already present, skip silently.
-3. Confirm to the DM: *"Autorun enabled. Players submit via the display; I'll pick up each action automatically. Send me a message at any time to take control of a turn."*
-4. If the user specified an interval (e.g. `/dm:dnd autorun on 45`), write `autorun_interval: 45` to `state.md → ## Session Flags`. Default is 60 if omitted.
-5. Immediately enter the autorun wait (see SKILL.md for the Bash block). If there's already something in `.input_queue`, pick it up as the current turn's player action.
+2. Confirm to the DM: *"Autorun enabled. Players submit via the display; I'll pick up each action automatically. Send me a message at any time to take control of a turn."*
+3. If the user specified an interval (e.g. `/dm:dnd autorun on 45`), write `autorun_interval: 45` to `state.md → ## Session Flags`. Default is 60 if omitted.
+4. Launch `autorun_wait.py`:
+   - In Antigravity: launch as an asynchronous background task (`WaitMsBeforeAsync: 500`):
+     `python3 ${CLAUDE_SKILL_DIR}/display/autorun_wait.py`
+     When the player submits on the web, Antigravity receives the `<SYSTEM_MESSAGE>` with the action and wakes up automatically.
+   - In Claude Code: run as a blocking bash call at the end of the turn.
 
 The display shows a pie-clock countdown draining from full to empty over the interval. Green pulse = actively waiting. Configurable via `autorun_interval: N` in state.md (default 60 seconds).
 
 **Off:**
 1. Write `autorun: false` (or remove the line) to `state.md → ## Session Flags`.
-2. Confirm: *"Autorun disabled. Back to manual mode — press Enter or tell me to submit when players are ready."*
+2. Confirm: *"Autorun disabled. Back to manual mode."*
 3. Do NOT start the autorun wait after this response.
 
-**Check on `/dm:dnd load`:** If `autorun: true` is present in state.md, tell the DM autorun is active and begin the wait loop after the recap paragraph.
+**Check on `/dm:dnd load`:** If `autorun: true` is present in state.md, tell the DM autorun is active and begin the background wait loop after the recap paragraph.
 
 **When NOT to run the autorun wait (even if flag is set):**
 - Mid-combat, resolving a specific combatant's turn

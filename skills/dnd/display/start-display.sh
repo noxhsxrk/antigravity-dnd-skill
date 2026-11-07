@@ -5,6 +5,7 @@
 #   bash start-display.sh              # localhost only, HTTP (default)
 #   bash start-display.sh --lan        # LAN mode, HTTP  ← use this for home/trusted networks
 #   bash start-display.sh --lan --tls  # LAN mode, HTTPS ← use this on public/untrusted networks
+#   bash start-display.sh --ngrok      # Forward to the internet via ngrok (https://...)
 #
 # HTTP is the default. Guests and new devices connect instantly with no setup.
 # TLS adds encryption but requires a one-time certificate install on each device.
@@ -25,11 +26,13 @@ RT="$(python3 -c "import sys,os;sys.path.insert(0,os.path.join('$DISPLAY_DIR','.
 # ── Parse flags ───────────────────────────────────────────────────────────────
 LAN_FLAG=""
 TLS_MODE=false
+NGROK_MODE=false
 
 for arg in "$@"; do
   case "$arg" in
     --lan) LAN_FLAG="--lan" ;;
     --tls) TLS_MODE=true ;;
+    --ngrok) NGROK_MODE=true ;;
   esac
 done
 
@@ -148,6 +151,10 @@ for i in $(seq 1 10); do
       echo "  For home/trusted LANs, plain HTTP (--lan, no --tls) is"
       echo "  simpler: guests connect instantly with no setup required."
       echo "══════════════════════════════════════════════════════════════"
+    fi
+
+    if $NGROK_MODE; then
+      bash "$DISPLAY_DIR/start-ngrok.sh"
     fi
 
     open "$LOCAL_URL" 2>/dev/null || true

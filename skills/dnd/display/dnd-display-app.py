@@ -29,6 +29,7 @@ import secrets
 import subprocess
 import sys
 import threading
+import unicodedata
 from collections import deque
 from typing import Optional
 from flask import Flask, Response, request, render_template, jsonify, send_from_directory
@@ -202,9 +203,6 @@ _PRINTABLE    = re.compile(
 _SHELL_CHARS  = re.compile(r'[$`\\;|&><()\[\]{}!]')
 # Unicode \w covers letters from all scripts above. Allow space, apostrophe, hyphen
 # inside the name; trim 1-2 char names to a separate branch.
-_CHAR_NAME_RE = re.compile(r"^\w[\w '\-]{0,48}\w$|^\w{1,2}$", re.UNICODE)
-
-
 def _sanitize_input(text: str) -> str:
     """Strip control chars and shell metacharacters from player input text."""
     text = _SHELL_CHARS.sub("", text)
@@ -214,8 +212,13 @@ def _sanitize_input(text: str) -> str:
 
 def _char_ok(name: str, known: set) -> bool:
     """Return True if character name is syntactically valid and in the party."""
-    if not _CHAR_NAME_RE.match(name):
+    if not name or len(name) > 50:
         return False
+    # Validate each char: Letters, Numbers, Combining Marks (Thai vowels/tones), spaces, apostrophes, hyphens
+    for c in name:
+        cat = unicodedata.category(c)
+        if not (cat[0] in ("L", "N", "M") or c in (" ", "'", "-")):
+            return False
     if known and name not in known and name != "Everybody":
         return False
     return True
@@ -2440,6 +2443,15 @@ def stage_input():
 
     if solo:
         _check_auto_trigger()
+        # Immediately push player action to display log so it appears on screen
+        player_entry = {"player": character, "text": f"{character}: {text}"}
+        with _text_log_lock:
+            _text_log.append(player_entry)
+        with _tail_lock:
+            _tail_buffer.append(player_entry)
+        _persist_log()
+        _persist_tail()
+        _broadcast(player_entry)
 
     return "", 204
 
@@ -2469,6 +2481,9 @@ def ready_input():
 
     with _staged_lock:
         if character not in _staged:
+            with _queue_status_lock:
+                if character in _queue_status or not _staged:
+                    return "", 204
             return "Not Found", 404
         _staged[character]["ready"] = ready
         snap = _staged_snapshot()
@@ -2708,13 +2723,8 @@ def stream():
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
-            "Transfer-Encoding": "chunked",
         },
     )
-    # Force a single authoritative Connection header — Werkzeug otherwise
-    # emits both keep-alive (ours) and close (its default), which confuses
-    # transparent proxies (e.g. eero mesh routing) into buffering the stream.
-    resp.headers["Connection"] = "keep-alive"
     return resp
 
 

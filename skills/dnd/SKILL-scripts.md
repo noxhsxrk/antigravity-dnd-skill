@@ -543,3 +543,34 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/corpus_check.py --campaign <name>
 ```
 
 Validates that every chapter id in `source-index.md` has a matching `source/<id>.md` (and vice-versa) and that `arc.md` exists. Run it at the end of `/dm:dnd import`. A campaign with no `source/` layer (dynamic, sandbox, or a pre-v2.2.0 import) is reported as a clean no-op — nothing to validate, and its load path is unchanged.
+
+---
+
+## Autorun & Network Tools — `display/`
+
+### Autorun Wait Loop — `display/autorun_wait.py`
+Blocks until player input is queued from the web/mobile companion, session invalidates, or 9 minutes timeout:
+```bash
+# In Antigravity: launch as asynchronous background task (WaitMsBeforeAsync: 500)
+python3 ${CLAUDE_SKILL_DIR}/display/autorun_wait.py
+```
+When player input arrives in `.input_queue`, prints the sanitized action and exits, triggering an automatic reactive wakeup in Antigravity.
+
+### Check Input Queue — `display/check_input.py`
+Non-blocking check to inspect and drain any queued player inputs from `.input_queue`:
+```bash
+python3 ${CLAUDE_SKILL_DIR}/display/check_input.py
+```
+
+### Remote / Internet Tunnel — `display/start-ngrok.sh` / `display/stop-ngrok.sh`
+Forward the companion display (port 5001) over the internet via secure ngrok HTTPS tunnel:
+```bash
+# Start display companion with ngrok tunnel:
+bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --ngrok
+
+# Or start / stop ngrok tunnel independently:
+bash ${CLAUDE_SKILL_DIR}/display/start-ngrok.sh
+bash ${CLAUDE_SKILL_DIR}/display/stop-ngrok.sh
+```
+Public URL is saved to `${CLAUDE_SKILL_DIR}/display/.ngrok_url`.
+

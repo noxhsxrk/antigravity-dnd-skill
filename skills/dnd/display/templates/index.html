@@ -3758,7 +3758,7 @@
               data-tab-section="move"></textarea>
     <div id="input-footer" data-tab-section="move">
       <button id="skip-turn-btn" style="display:none" title="Skip this character's turn">Skip Turn</button>
-      <button id="stage-btn">Stage</button>
+      <button id="stage-btn">ส่งแอ็กชัน (Send)</button>
     </div>
     <!-- Phone-only dice pad (shown by ?view=input) -->
     <div id="dice-pad" data-tab-section="roll">
@@ -7239,7 +7239,7 @@ function _renderQueueStatus(chars) {
     return;
   }
   const checks = chars.map(c => `<span class="queue-check">✓ ${c}</span>`).join('');
-  _waitingEl.innerHTML = `<span class="queue-label">⏳ Queued — fires on DM Enter</span>${checks}`;
+  _waitingEl.innerHTML = `<span class="queue-label">✓ ส่งถึง DM แล้ว (Sent)</span>${checks}`;
   _waitingEl.style.display = 'block';
 }
 
@@ -7298,7 +7298,7 @@ async function _stageAction() {
   }
   _stageBtn.disabled = false;
   if (_sent) {
-    _stageBtn.textContent = 'Stage';
+    _stageBtn.textContent = 'ส่งแอ็กชัน (Send)';
   } else {
     // Honest failure: the text + the dnd_staged_input cache are preserved, so a
     // tap re-sends without retyping. Never silently reset to 'Stage' on failure —
