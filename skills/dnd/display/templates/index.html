@@ -3580,6 +3580,196 @@
     background:var(--e-accent, #FF7A2D); color:var(--e-dice-text, #14110C); border-color:var(--e-accent, #FF7A2D); }
   body.input-only #phone-status.ps-sending{ opacity:.8; }
   body.input-only #phone-status.ps-resolving{ color:var(--e-accent, #FF7A2D); }
+
+  /* ══════════════════════════════════════════════════════════
+     RESPONSIVE MOBILE / PHONE LAYOUT (viewport <= 768px)
+     ══════════════════════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    /* 1. Prose / text column: full readable width */
+    #text-scroll {
+      padding: 68px 16px 130px 16px !important;
+      max-width: 100vw !important;
+      box-sizing: border-box !important;
+    }
+    #text-content {
+      max-width: 100% !important;
+      font-size: 15.5px !important;
+      line-height: 1.65 !important;
+    }
+    .dm-block, .npc-block, .dice-block, .tutor-block, .player-block {
+      padding: 12px 14px !important;
+      margin-bottom: 14px !important;
+    }
+
+    /* 2. Character Sidebar: slide-in drawer instead of occupying half the screen */
+    #sidebar {
+      top: 0 !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      width: min(320px, 86vw) !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      z-index: 150 !important;
+      background: rgba(14, 10, 6, 0.98) !important;
+      border-right: 1px solid rgba(180, 140, 60, 0.4) !important;
+      box-shadow: 6px 0 28px rgba(0, 0, 0, 0.9) !important;
+      padding: 56px 16px 24px 18px !important;
+      transform: translateX(-100%) !important;
+      transition: transform 0.3s ease, opacity 0.3s ease !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    #sidebar.mobile-open {
+      transform: translateX(0) !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    #sidebar.hidden {
+      transform: translateX(-100%) !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* Sidebar toggle button (Hero Sheet) */
+    #sidebar-toggle {
+      position: fixed !important;
+      top: 14px !important;
+      left: 12px !important;
+      z-index: 160 !important;
+      background: rgba(22, 14, 6, 0.9) !important;
+      border: 1px solid rgba(180, 140, 60, 0.5) !important;
+      border-radius: 6px !important;
+      padding: 5px 10px !important;
+      font-size: 11px !important;
+      color: #f4e2a8 !important;
+      letter-spacing: 1px !important;
+      display: block !important;
+      backdrop-filter: blur(8px) !important;
+    }
+
+    /* Hide corner logo on mobile so it doesn't obstruct */
+    #corner-logo {
+      display: none !important;
+    }
+
+    /* 3. Top bar headers & buttons */
+    #scene-indicator {
+      top: 14px !important;
+      font-size: 11px !important;
+      letter-spacing: 2px !important;
+      max-width: 40vw !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+    }
+    #world-clock {
+      top: 10px !important;
+      right: 12px !important;
+      font-size: 10px !important;
+      text-align: right !important;
+      max-width: 38vw !important;
+    }
+    #world-clock #wc-icon { font-size: 12px !important; }
+    #ruleset-badge { font-size: 8px !important; }
+
+    #phone-mode-btn {
+      top: 48px !important;
+      right: 12px !important;
+      padding: 3px 8px !important;
+      font-size: 9px !important;
+      background: rgba(20, 12, 4, 0.85) !important;
+      border-radius: 4px !important;
+    }
+    #audio-controls {
+      top: 76px !important;
+      right: 12px !important;
+      font-size: 10px !important;
+      background: rgba(12, 8, 4, 0.9) !important;
+      border: 1px solid rgba(180, 140, 60, 0.3) !important;
+      border-radius: 6px !important;
+      padding: 4px 8px !important;
+    }
+
+    /* 4. Dice pending badge: top banner instead of blocking dead center */
+    #dice-pending-badge {
+      top: 70px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      width: calc(100vw - 32px) !important;
+      max-width: 400px !important;
+      box-sizing: border-box !important;
+      font-size: 12px !important;
+      padding: 10px 14px !important;
+      z-index: 140 !important;
+      pointer-events: auto !important;
+    }
+
+    /* 5. Bottom Party Input panel */
+    #input-panel {
+      position: fixed !important;
+      bottom: env(safe-area-inset-bottom, 10px) !important;
+      left: 10px !important;
+      width: calc(100vw - 20px) !important;
+      max-width: none !important;
+      transform: none !important;
+      z-index: 110 !important;
+      box-sizing: border-box !important;
+      border-radius: 8px !important;
+      background: rgba(14, 10, 5, 0.96) !important;
+      border: 1px solid rgba(180, 140, 60, 0.45) !important;
+    }
+    #input-panel.collapsed {
+      width: auto !important;
+      min-width: 170px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      border-radius: 20px !important;
+    }
+    #input-panel-header {
+      padding: 8px 14px !important;
+    }
+    #input-panel-label {
+      font-size: 10px !important;
+      letter-spacing: 1.5px !important;
+    }
+    #player-input-text {
+      font-size: 16px !important; /* CRITICAL: prevents iOS Safari auto-zoom on focus! */
+      min-height: 52px !important;
+      padding: 10px !important;
+      border-radius: 6px !important;
+    }
+    #char-tabs {
+      gap: 6px !important;
+      margin-bottom: 6px !important;
+    }
+    .char-tab {
+      font-size: 11px !important;
+      padding: 6px 12px !important;
+      border-radius: 4px !important;
+      min-height: 32px !important;
+    }
+    #input-footer {
+      gap: 8px !important;
+    }
+    #stage-btn {
+      min-height: 44px !important;
+      font-size: 14px !important;
+      padding: 10px 16px !important;
+      border-radius: 6px !important;
+    }
+    #skip-turn-btn {
+      min-height: 44px !important;
+      font-size: 12px !important;
+      padding: 8px 12px !important;
+    }
+
+    /* Modal dialogs on mobile */
+    .modal-content, #char-modal-box {
+      width: calc(100vw - 24px) !important;
+      max-width: 100vw !important;
+      padding: 16px !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -7573,16 +7763,44 @@ let _sidebarVisible = true;
 
 function _setSidebarVisible(visible) {
   _sidebarVisible = visible;
-  if (visible) {
-    _sidebar.classList.remove('hidden');
-    _textScroll.classList.remove('sidebar-hidden');
-    _sidebarBtn.textContent = '◀ Hide';
-  } else {
-    _sidebar.classList.add('hidden');
+  if (window.innerWidth <= 768) {
+    if (visible) {
+      _sidebar.classList.add('mobile-open');
+      _sidebar.classList.remove('hidden');
+      _sidebarBtn.textContent = '✕ Close';
+    } else {
+      _sidebar.classList.remove('mobile-open');
+      _sidebar.classList.add('hidden');
+      _sidebarBtn.textContent = '🛡️ Sheet';
+    }
     _textScroll.classList.add('sidebar-hidden');
-    _sidebarBtn.textContent = '▶ Stats';
+  } else {
+    _sidebar.classList.remove('mobile-open');
+    if (visible) {
+      _sidebar.classList.remove('hidden');
+      _textScroll.classList.remove('sidebar-hidden');
+      _sidebarBtn.textContent = '◀ Hide';
+    } else {
+      _sidebar.classList.add('hidden');
+      _textScroll.classList.add('sidebar-hidden');
+      _sidebarBtn.textContent = '▶ Stats';
+    }
   }
 }
+
+// Initialise default state based on viewport width
+if (window.innerWidth <= 768) {
+  _setSidebarVisible(false);
+}
+
+// Close mobile sidebar when tapping outside
+document.addEventListener('click', (e) => {
+  if (window.innerWidth <= 768 && _sidebarVisible) {
+    if (!_sidebar.contains(e.target) && !_sidebarBtn.contains(e.target)) {
+      _setSidebarVisible(false);
+    }
+  }
+});
 
 _sidebarBtn.addEventListener('click', () => _setSidebarVisible(!_sidebarVisible));
 
@@ -8206,8 +8424,17 @@ function _updateDicePendingBadge(snapshot) {
     const label = e.label ? `<span class="dpb-label">${_escHtml(e.label)}</span>` : '';
     return `Waiting on: ${who}${label}`;
   }).join('<hr style="border:none;border-top:1px solid rgba(180,140,60,0.25);margin:6px 0">');
-  badge.innerHTML = lines;
+  badge.innerHTML = `<button id="dpb-close" style="position:absolute;top:2px;right:6px;background:none;border:none;color:#b8a26a;font-size:16px;cursor:pointer;padding:2px 6px;line-height:1;pointer-events:auto;" title="Dismiss">✕</button>` + lines;
   badge.classList.add('visible');
+  const closeBtn = document.getElementById('dpb-close');
+  if (closeBtn) {
+    closeBtn.onclick = (ev) => {
+      ev.stopPropagation();
+      badge.classList.remove('visible');
+      badge.innerHTML = '';
+      fetch('/dice-request/clear', { method: 'POST', headers: _authHeaders() }).catch(() => {});
+    };
+  }
 }
 
 // ── Phone dice pad: server-side roll + slot-machine reveal ───────────────
@@ -8481,7 +8708,7 @@ function _initDicePad() {
   // Cancellations for other phones (or for requests we never received) are
   // safely ignored.
   function _onDiceRequestCancelled(rid) {
-    if (!rid || rid !== _activeRequestId) return;
+    if (!rid || (rid !== 'all' && rid !== _activeRequestId)) return;
     _activeRequestId = '';
     if (_locked) _setLocked(false);
     rollBtn.disabled = false;

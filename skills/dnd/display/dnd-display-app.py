@@ -2020,13 +2020,17 @@ def clear():
         _text_log.clear()
     with _stats_lock:
         _current_stats = {}
+    with _dice_pending_lock:
+        _dice_pending.clear()
+    with _queue_status_lock:
+        _queue_status.clear()
     _scene_buffer = []
     for path in (LOG_FILE, STATS_FILE):
         try:
             os.remove(path)
         except FileNotFoundError:
             pass
-    _broadcast({"clear": True})
+    _broadcast({"clear": True, "dice_pending": [], "queue_status": []})
     return "", 204
 
 
@@ -2316,6 +2320,19 @@ def dice_request_cancel(request_id):
     with _dice_pending_lock:
         _dice_pending.pop(request_id, None)
     _broadcast({"dice_pending": _dice_pending_snapshot(), "dice_request_cancelled": request_id})
+    return "", 204
+
+
+@app.route("/dice-request", methods=["DELETE"])
+@app.route("/dice-request/all", methods=["DELETE", "POST"])
+@app.route("/dice-request/clear", methods=["DELETE", "POST"])
+def dice_request_clear_all():
+    """Cancel all pending dice requests."""
+    if not _token_ok():
+        return "Forbidden", 403
+    with _dice_pending_lock:
+        _dice_pending.clear()
+    _broadcast({"dice_pending": [], "dice_request_cancelled": "all"})
     return "", 204
 
 
