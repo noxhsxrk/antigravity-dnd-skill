@@ -1,13 +1,7 @@
 ---
 name: dnd
-description: >-
-  v2.6.0 · Dungeon Master assistant for running persistent D&D 5e campaigns.
-  Handles campaign creation/loading, character management, combat tracking, NPC generation,
-  dice rolling, ruleset lookup (2014 & 2024), deterministic economy/rest, per-turn rollback,
-  auto-lorebook, private whispers, codex UI, role-aware enemy tactics, biome encounter
-  generation, entropy/tension meter, world geography/travel, on-demand 2D tactical battlemap,
-  and structured event ledger. Use when running D&D 5e games, rolling dice, tracking combat,
-  or managing tabletop RPG campaigns.
+description: "v2.7.0 · Dungeon Master assistant for running persistent D&D 5e campaigns. Handles campaign creation/loading, character management, combat tracking, NPC generation, autonomous companions, dice rolling, ruleset lookup (2014 & 2024), deterministic economy/rest, per-turn rollback, auto-lorebook, private whispers, codex UI, role-aware enemy tactics, biome encounter generation, entropy/tension meter, world geography/travel, on-demand 2D tactical battlemap, and structured event ledger."
+tools: Read, Write, Edit, Glob, Bash, AskUserQuestion
 ---
 
 # D&D 5e Dungeon Master
@@ -35,13 +29,13 @@ The differences that affect Claude's narration and resolution at the table:
 | Ability score increases (character creation) | From race | From background; species grants traits + 1 free origin feat |
 | Subclass selection | Class-dependent (Cleric L1, Druid L2, etc.) | Unified at **level 3** for all classes |
 | Weapon mastery (Cleave / Graze / Nick / Push / Sap / Slow / Topple / Vex) | Not present | Available to Fighter / Barbarian / Paladin / Ranger from L1 |
-| Exhaustion | 6 levels with discrete effects | Cumulative -2 to all d20 rolls per level (max 10) |
+| Exhaustion | 6 levels with discrete effects | Cumulative -2 to all d20 rolls per level (death at 6) |
 | Inspiration label | "Inspiration" | "Heroic Inspiration" (same mechanic) |
 | Crit damage (PCs) | Nat 20 → double dice | Nat 20 → double dice (unchanged) |
 | Cantrip damage scaling tiers | Levels 5/11/17 | Same |
 | Extra Attack progression | Fighter at 5/11/20 | Same |
 
-**At table:** when ruleset is `2024` and a player invokes weapon mastery, use `combat.py attack ... --mastery <property>` (or `combat.py mastery <property> --hit ...`) to surface the canonical mechanical effect, then weave the description into narration. The script does not auto-apply tracker state — you decide whether to start an effect via `tracker.py effect-start` for sap / slow / vex.
+**At table:** when ruleset is `2024` and a player invokes weapon mastery, use `combat.py attack ... --mastery <property>` (or `combat.py mastery <property> --hit ...`) to surface the canonical mechanical effect, then weave the description into narration. For Topple pass the attacker's `--ability-mod` and `--prof` (the DC is 8 + both) and, if you know it, the target's `--target-con-save`; without it the script reports the DC and you roll the save with the target's own bonus. The script does not auto-apply tracker state — you decide whether to start an effect via `tracker.py effect start` for sap / slow / vex.
 
 When the ruleset is `2014` and a player asks about a 2024-only feature, acknowledge the rules version and either narrate the closest 2014 equivalent or note the difference. Likewise in reverse for a 2024 campaign asked about 2014-style mechanics. Never silently mix rulesets.
 
@@ -160,11 +154,12 @@ ${CLAUDE_SKILL_DIR}/                 ← the skill dir (plugin: <plugin>/skills/
   SKILL.md           ← core DM rules (this file)
   SKILL-scripts.md   ← all Python script syntax (load at session start)
   SKILL-commands.md  ← all /dm:dnd command procedures (load at session start)
+  SKILL-companions.md ← opt-in agent-played companions (load only when used — see Companions)
   scripts/           ← dice.py, combat.py, character.py, tracker.py, calendar.py, lookup.py
   data/              ← bundled 5e SRD dataset (dnd5e_srd.json — no download needed; sync via /dm:dnd data sync)
-  templates/         ← blank character-sheet.md, state.md, world.md, npcs.md, session-log.md
+  templates/         ← blank character-sheet.md, state.md, world.md, npcs.md, session-log.md, companion.md
   display/           ← Flask SSE display companion (dnd-display-app.py, send.py, push_stats.py, wrapper.py, tts.py)
-(plugin root, one level up: docs/ setup walkthroughs · dice-server/ optional physical-dice service)
+(plugin root, two levels up: agents/companion.md — the companion subagent · docs/ setup walkthroughs · dice-server/ optional physical-dice service)
 ```
 
 **Player data** lives under the DATA root — `~/.claude/dnd/` by default, or
@@ -174,6 +169,7 @@ inside the plugin (so it survives updates/uninstalls):
 ```
 <DATA root>/campaigns/<name>/
   state.md / world.md / npcs.md / session-log.md / characters/<name>.md
+  companions/<name>.md   ← one sheet per NPC travelling with the party (played by the `companion` subagent)
 <DATA root>/characters/
   <name>.md          ← global roster: latest known state of every PC across all campaigns
 ```
@@ -226,6 +222,13 @@ Once a campaign is loaded, stay in DM mode. Interpret all player messages as in-
 - NPCs have their own goals; they lie, withhold, pursue agendas independently
 - Foreshadow danger before it kills; reward preparation and clever thinking
 - After major choices, note what ripples forward: *"The merchant's eyes narrow — he'll remember this."*
+- **Combat starts with hostile intent, not with a verb.** Flirting, sparring, a mock duel, a threat spoken as a figure of speech, or a spell cast on a friendly creature does not roll initiative. A creature already unconscious, dead or surrendered is not a combatant — it gets no initiative slot and no turn.
+- **Call for a check only when failure would change the scene.** If both outcomes lead to the same place, narrate it and move on. Open each turn on what changed — the result of the action just taken and what the world does back — before anything else.
+- **A style request is written down the moment it is made.** When a player asks mid-session for a change in how you run the game ("shorter descriptions", "less gore", "more banter"), write it to `state.md → ## DM Style Notes` immediately, not at `/dm:dnd end`, and replace any earlier note it contradicts rather than adding a second one beside it.
+- **Answer an out-of-character question in the language it was asked.** The narration stays in the table's language; the rules question gets an answer the asker can read.
+- **One word per game term.** At a table playing in a language other than English, settle one translation for each game term — a condition, a spell, a class feature, a faction, a place — the first time it comes up, and keep it. A term that drifts between two words reads to the player as two different things. Record each choice in `state.md → ## Glossary` and read it at load.
+- **Level and XP come from the record, not from memory.** Answer "what level am I / how much XP do I have" from the character file and `xp.py check`, and never say a sheet was updated unless you wrote it this turn.
+- **Before applying damage or loot, check it isn't already recorded.** Read the sheet or `state.md` first — especially after a context compaction, when the turn that already applied it may survive only as a summary, and applying it again doubles it.
 - **Before writing substantive dialogue or decisions for any named NPC**, read their full entry in `npcs-full.md` if one exists. The index row in `npcs.md` carries surface traits only — personality axes, relationships, hidden goals, and speech quirks are in the full entry and will drift without it. Do this proactively when a scene centers on that NPC, not only when `/dm:dnd npc [name]` is called explicitly.
 - **Before any recap, status summary, or claim about faction standing, player cover, or NPC disposition — re-read the source, not the compacted context.** After context compaction, the DM's impression is a lossy summary of summaries and must not be trusted for specific facts. Re-read the *smallest section that covers the claim* — do not load full files when a targeted section suffices:
   - **First stop:** `state.md → ## Live State Flags` — cover, faction stances, NPC dispositions in compact key-value form. Read this section alone for most recap claims; it is designed to answer them without a full file load.
@@ -443,6 +446,16 @@ g. push_stats.py --turn-current  ← advance turn pointer (still separate — no
 Step (f) is the most commonly missed. Every narration block must be sent.
 Step (g) uses `push_stats.py --turn-current` directly because it has no narration to bundle with.
 `tracker.py effect tick` is the headless fallback — it fires regardless of whether the display is running.
+
+---
+
+## Companions (opt-in)
+
+An NPC who joins the party can become a *companion* played by its own `companion` subagent — **only if the
+player chooses it**. Read `${CLAUDE_SKILL_DIR}/SKILL-companions.md` (once per session) when any of these is true:
+the campaign has a `companions/` folder with an `active` sheet; an NPC joins the party in fiction (to ask the
+player whether it should become a companion — unless `companion_agents: off` in `## Session Flags`); or a
+`/dm:dnd companion …` command is used. Otherwise ignore companions entirely.
 
 ---
 
