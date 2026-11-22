@@ -1175,12 +1175,35 @@ def _persist_input_queue() -> None:
 _load_input_queue()
 
 
+def _project_chunk_for_char(entry: dict, client_char: str) -> dict:
+    """Project a chunk for a specific SSE client, redacting private whispers for non-targets."""
+    targets = entry.get("whisper_to")
+    if not targets:
+        return entry
+    target_set = {str(t).strip().lower() for t in targets if str(t).strip()}
+    if client_char and client_char in target_set:
+        out = dict(entry)
+        out["whisper"] = True
+        return out
+    # Non-target client (other players or shared TV screen): redact secret text
+    return {
+        "whisper_redacted": True,
+        "whisper_to": list(targets),
+        "text": f"🔒 Private whisper to {', '.join(targets)}",
+    }
+
+
 def _broadcast(payload: dict) -> None:
     with _clients_lock:
         dead = []
+        has_whisper = bool(payload.get("whisper_to"))
         for q in _clients:
             try:
-                q.put_nowait(payload)
+                if has_whisper:
+                    ch = _client_chars.get(q, "")
+                    q.put_nowait(_project_chunk_for_char(payload, ch))
+                else:
+                    q.put_nowait(payload)
             except queue.Full:
                 dead.append(q)
         for q in dead:
@@ -1411,6 +1434,12 @@ def chunk():
         payload["player"] = data["player"]
     elif is_npc:
         payload["npc"] = data["npc"]
+        if data.get("speaker_id"):
+            payload["speaker_id"] = str(data["speaker_id"]).strip()[:64]
+        if data.get("concealed"):
+            payload["concealed"] = True
+        elif data.get("portrait"):
+            payload["portrait"] = str(data["portrait"]).strip()[:200]
     elif is_dice:
         payload["dice"] = True
     elif is_tutor:
@@ -1426,7 +1455,13 @@ def chunk():
         if _audio:
             _audio.on_text(cleaned)
 
-    # Store full typed payload so replay preserves action/player/npc/dice/tutor context
+    # Optional private whisper routing & quick-action suggestion chips
+    if isinstance(data.get("whisper_to"), list) and data["whisper_to"]:
+        payload["whisper_to"] = [str(t).strip()[:48] for t in data["whisper_to"] if str(t).strip()]
+    if isinstance(data.get("suggestions"), list) and data["suggestions"]:
+        payload["suggestions"] = [str(s).strip()[:80] for s in data["suggestions"] if str(s).strip()][:4]
+
+    # Store full typed payload so replay preserves action/player/npc/dice/tutor/whisper context
     log_entry: dict = {"text": cleaned}
     if is_action:
         log_entry["action"] = data["action"]
@@ -1434,10 +1469,18 @@ def chunk():
         log_entry["player"] = data["player"]
     elif is_npc:
         log_entry["npc"] = data["npc"]
+        if payload.get("speaker_id"):
+            log_entry["speaker_id"] = payload["speaker_id"]
+        if payload.get("concealed"):
+            log_entry["concealed"] = True
+        elif payload.get("portrait"):
+            log_entry["portrait"] = payload["portrait"]
     elif is_dice:
         log_entry["dice"] = True
     elif is_tutor:
         log_entry["tutor"] = True
+    if payload.get("whisper_to"):
+        log_entry["whisper_to"] = payload["whisper_to"]
 
     # Stamp campaign on tail entries to prevent bleed when switching campaigns
     try:
@@ -2635,6 +2678,264 @@ def drain_player_input():
     return jsonify(drained), 200
 
 
+# ─── v2.5.0: Discovered-Only Codex, Engine Suggested Actions & Rollback ──────
+
+_DM_SECRET_LINE_RE = re.compile(
+    r"(?:hidden\s+goal|secret|dm\s*only|dm\s*note|gm\s*note|true\s+identity|spoiler|<!--\s*dm-only)",
+    re.IGNORECASE,
+)
+
+
+def _strip_dm_secrets(text: str) -> str:
+    """Remove lines containing DM-only secrets before exposing to player Codex."""
+    out = []
+    skip_block = False
+    for line in text.splitlines():
+        if "<!-- dm-only" in line.lower():
+            skip_block = True
+            continue
+        if skip_block:
+            if "-->" in line:
+                skip_block = False
+            continue
+        if _DM_SECRET_LINE_RE.search(line):
+            continue
+        out.append(line)
+    return "\n".join(out).strip()
+
+
+def _parse_codex_sections(filepath: str) -> list:
+    if not os.path.exists(filepath):
+        return []
+    try:
+        raw = open(filepath, encoding="utf-8", errors="replace").read()
+    except OSError:
+        return []
+    items = []
+    cur_title = ""
+    cur_lines = []
+
+    def _flush():
+        nonlocal cur_title, cur_lines
+        if cur_title:
+            body = _strip_dm_secrets("\n".join(cur_lines))
+            if body and not _DM_SECRET_LINE_RE.search(cur_title):
+                items.append({"name": cur_title.strip(), "summary": body[:450]})
+        cur_title = ""
+        cur_lines = []
+
+    for line in raw.splitlines():
+        m = re.match(r"^#{2,3}\s+(.+)$", line)
+        if m:
+            _flush()
+            cur_title = re.sub(r"[*_`]", "", m.group(1)).strip()
+        else:
+            cur_lines.append(line)
+    _flush()
+    return items
+
+
+@app.route("/codex", methods=["GET"])
+def codex():
+    """Discovered-only Adventure Book / Codex (DungeonGPT-JS pattern, DM-secrets stripped)."""
+    camp = _active_campaign_name()
+    if not camp:
+        with _stats_lock:
+            camp = str(_current_stats.get("campaign") or "").strip() or None
+    if not camp:
+        return jsonify({"campaign": None, "npcs": [], "locations": [], "quests": [], "factions": []}), 200
+
+    try:
+        _scripts = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts"))
+        if _scripts not in sys.path:
+            sys.path.insert(0, _scripts)
+        from paths import find_campaign
+        cdir = str(find_campaign(camp))
+    except Exception:
+        cdir = os.path.expanduser(f"~/.claude/dnd/campaigns/{camp}")
+
+    npcs = []
+    locations = []
+    quests = []
+    factions = []
+
+    # Parse discovered NPCs from npcs.md (surface index — never npcs-full.md)
+    npcs_path = os.path.join(cdir, "npcs.md")
+    if os.path.exists(npcs_path):
+        try:
+            for line in open(npcs_path, encoding="utf-8", errors="replace"):
+                s = line.strip()
+                if s.startswith("|") and not s.startswith("|---") and not s.lower().startswith("| name"):
+                    cols = [c.strip() for c in s.strip("|").split("|")]
+                    if cols and cols[0] and not _DM_SECRET_LINE_RE.search(s):
+                        npcs.append({
+                            "name": cols[0],
+                            "role": cols[1] if len(cols) > 1 else "",
+                            "summary": _strip_dm_secrets(" · ".join(c for c in cols[2:4] if c)),
+                        })
+        except OSError:
+            pass
+    if not npcs:
+        npcs = _parse_codex_sections(npcs_path)
+
+    # Parse locations from world.md
+    locations = _parse_codex_sections(os.path.join(cdir, "world.md"))[:20]
+
+    # Parse active quests / current situation from state.md
+    state_path = os.path.join(cdir, "state.md")
+    for sec in _parse_codex_sections(state_path):
+        title_l = sec["name"].lower()
+        if any(k in title_l for k in ("quest", "situation", "hook", "thread", "objective")):
+            quests.append(sec)
+        elif "faction" in title_l:
+            factions.append(sec)
+
+    # Supplement with non-secret graph.json nodes if present
+    gpath = os.path.join(cdir, "graph.json")
+    if os.path.exists(gpath):
+        try:
+            g = json.load(open(gpath, encoding="utf-8"))
+            nodes = g.get("nodes", {})
+            nlist = list(nodes.values()) if isinstance(nodes, dict) else (nodes if isinstance(nodes, list) else [])
+            seen_f = {f["name"].lower() for f in factions}
+            for n in nlist:
+                if not isinstance(n, dict):
+                    continue
+                tags = {str(t).lower() for t in (n.get("tags") or [])}
+                if "dm_only" in tags or "secret" in tags:
+                    continue
+                if str(n.get("type", "")).lower() == "faction":
+                    nm = str(n.get("name", "")).strip()
+                    if nm and nm.lower() not in seen_f:
+                        factions.append({"name": nm, "summary": _strip_dm_secrets(str(n.get("summary", "")))})
+                        seen_f.add(nm.lower())
+        except Exception:
+            pass
+
+    return jsonify({
+        "campaign": camp,
+        "npcs": npcs[:30],
+        "locations": locations[:20],
+        "quests": quests[:15],
+        "factions": factions[:15],
+    }), 200
+
+
+@app.route("/suggested-actions", methods=["GET"])
+def suggested_actions():
+    """Engine-derived Quick-Action Chips computed purely from live game state (zero LLM calls)."""
+    char = (request.args.get("char") or request.args.get("character") or "").strip().lower()
+    chips = []
+
+    with _stats_lock:
+        players = list(_current_stats.get("players") or [])
+        turn_order = list(_current_stats.get("turn_order") or [])
+
+    in_combat = bool(turn_order)
+    me = next((p for p in players if str(p.get("name", "")).lower() == char), None) if char else None
+    if not me and players:
+        me = players[0]
+
+    hp_low = False
+    if me and isinstance(me.get("hp"), dict):
+        cur = me["hp"].get("current", 1)
+        mx = max(1, me["hp"].get("max", 1))
+        hp_low = (cur / mx) <= 0.45
+
+    scene = (_current_scene_name or "").lower()
+
+    if in_combat:
+        chips.append({"label": "⚔️ Attack", "action": "I attack the nearest enemy with my weapon."})
+        if hp_low:
+            chips.append({"label": "🧪 Heal / Potion", "action": "I drink a healing potion or use a healing ability."})
+        else:
+            chips.append({"label": "🛡️ Dodge / Take Cover", "action": "I take the Dodge action and move to cover."})
+        chips.append({"label": "👁️ Assess Battlefield", "action": "I scan the battlefield for threats or tactical advantages."})
+    else:
+        chips.append({"label": "👁️ Look Around", "action": "I look around carefully and inspect my surroundings."})
+        if scene in ("tavern", "city", "town") and hp_low:
+            chips.append({"label": "🛏️ Rest at the Inn", "action": "I find a room at the inn to take a rest and recover."})
+        elif hp_low:
+            chips.append({"label": "⛺ Short Rest", "action": "I suggest we pause for a Short Rest to tend our wounds."})
+        elif scene in ("tavern", "city", "town"):
+            chips.append({"label": "🗣️ Ask for Rumours", "action": "I talk to the locals and ask about recent rumours or work."})
+        else:
+            chips.append({"label": "🧭 Search Area", "action": "I search the area carefully for clues, traps, or hidden paths."})
+        chips.append({"label": "📜 Check Leads", "action": "I review our current leads and ask the party what we should pursue next."})
+
+    return jsonify({"chips": chips[:3], "in_combat": in_combat, "scene": scene}), 200
+
+
+@app.route("/rollback", methods=["POST"])
+def rollback():
+    """Reload stats/log from disk after `turn_snapshot.py undo` and broadcast refresh to clients."""
+    if not _token_ok():
+        return "Forbidden", 403
+    data = request.get_json(silent=True) or {}
+    _load_stats()
+    _load_log()
+    with _stats_lock:
+        stats_snap = dict(_current_stats)
+    with _clients_lock:
+        for q in list(_clients):
+            ch = _client_chars.get(q, "")
+            with _text_log_lock:
+                recent = [_project_chunk_for_char(e, ch) for e in list(_text_log)[-200:]]
+            try:
+                q.put_nowait({
+                    "rollback": {"campaign": data.get("campaign", ""), "turn": data.get("turn")},
+                    "stats": stats_snap,
+                    "replay_batch": recent,
+                })
+            except queue.Full:
+                pass
+    return jsonify({"ok": True}), 200
+
+
+# ─── v2.6.0: Live Entropy (Tension Meter) & On-Demand 2D Tactical Battlemap ──
+
+_entropy_lock = threading.Lock()
+_current_entropy: dict = {"value": 0, "tier": "CALM", "reason": ""}
+
+_battlemap_lock = threading.Lock()
+_current_battlemap: "dict | None" = None
+
+
+@app.route("/entropy", methods=["GET", "POST"])
+def entropy_endpoint():
+    if request.method == "GET":
+        with _entropy_lock:
+            return jsonify(dict(_current_entropy)), 200
+    if not _token_ok():
+        return "Forbidden", 403
+    data = request.get_json(silent=True) or {}
+    val = max(0, min(100, int(data.get("value", 0))))
+    tier = str(data.get("tier", "CALM")).strip()[:20]
+    reason = str(data.get("reason", "")).strip()[:160]
+    snap = {"value": val, "tier": tier, "reason": reason}
+    with _entropy_lock:
+        _current_entropy.update(snap)
+    _broadcast({"entropy": snap})
+    return jsonify({"ok": True, "entropy": snap}), 200
+
+
+@app.route("/battlemap", methods=["GET", "POST"])
+def battlemap_endpoint():
+    global _current_battlemap
+    if request.method == "GET":
+        with _battlemap_lock:
+            return jsonify({"battlemap": _current_battlemap}), 200
+    if not _token_ok():
+        return "Forbidden", 403
+    data = request.get_json(silent=True) or {}
+    bm = data.get("battlemap")
+    with _battlemap_lock:
+        _current_battlemap = bm if isinstance(bm, dict) else None
+        snap = dict(_current_battlemap) if _current_battlemap else None
+    _broadcast({"battlemap": snap})
+    return jsonify({"ok": True, "active": snap is not None}), 200
+
+
 @app.route("/stream")
 def stream():
     q: queue.Queue = queue.Queue(maxsize=256)
@@ -2656,7 +2957,7 @@ def stream():
     # last 200 chunks — the browser renders this batch on join, not the whole
     # log, so a late joiner isn't shown sessions 1..N rendered at them.
     with _text_log_lock:
-        recent = list(_text_log)[-200:]
+        recent = [_project_chunk_for_char(e, _ch) for e in list(_text_log)[-200:]]
     if recent:
         q.put_nowait({"replay_batch": recent})
 
@@ -2664,6 +2965,14 @@ def stream():
     with _stats_lock:
         if _current_stats:
             q.put_nowait({"stats": dict(_current_stats)})
+
+    # Replay live entropy & active battlemap (v2.6.0)
+    with _entropy_lock:
+        if _current_entropy.get("value", 0) > 0:
+            q.put_nowait({"entropy": dict(_current_entropy)})
+    with _battlemap_lock:
+        if _current_battlemap:
+            q.put_nowait({"battlemap": dict(_current_battlemap)})
 
     # Send current input queue so the pending indicator is accurate on reconnect.
     with _input_lock:

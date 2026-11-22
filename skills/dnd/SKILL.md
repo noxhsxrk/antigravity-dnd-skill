@@ -1,25 +1,23 @@
 ---
 name: dnd
-description: "v2.4.0 · Dungeon Master assistant for running persistent D&D 5e campaigns. Handles campaign creation/loading, character management, combat tracking, NPC generation, dice rolling, and session state — all persisted across sessions. Invoke with /dm:dnd followed by a subcommand, or just speak naturally once a campaign is loaded."
-tools: Read, Write, Edit, Glob, Bash, AskUserQuestion
+description: >-
+  v2.6.0 · Dungeon Master assistant for running persistent D&D 5e campaigns.
+  Handles campaign creation/loading, character management, combat tracking, NPC generation,
+  dice rolling, ruleset lookup (2014 & 2024), deterministic economy/rest, per-turn rollback,
+  auto-lorebook, private whispers, codex UI, role-aware enemy tactics, biome encounter
+  generation, entropy/tension meter, world geography/travel, on-demand 2D tactical battlemap,
+  and structured event ledger. Use when running D&D 5e games, rolling dice, tracking combat,
+  or managing tabletop RPG campaigns.
 ---
 
 # D&D 5e Dungeon Master
 
-> ## ⚙ Skill directory & script paths — read first
+> ## ⚙ Skill directory & script paths
 >
-> `${CLAUDE_SKILL_DIR}` is this skill's directory. In **this file** it has already been
-> substituted to its real absolute path (you can see it resolved just above/throughout).
-> **Every helper script and bundled file is invoked through that path.**
+> All helper scripts, reference guides, and bundled assets live in:
+> `${CLAUDE_SKILL_DIR}`
 >
-> The two reference files you load next — `SKILL-scripts.md` and `SKILL-commands.md` —
-> are read via the Read tool, which returns them **verbatim**: the literal text
-> `${CLAUDE_SKILL_DIR}` will appear in them *un-expanded*. Whenever you run a command
-> from those files (or anywhere), **replace `${CLAUDE_SKILL_DIR}` with the absolute path
-> shown in this file before executing.** A Bash command still containing the literal
-> `${CLAUDE_SKILL_DIR}` will fail — an ad-hoc shell expands it to nothing, giving a
-> broken `/scripts/…` path. When in doubt, the skill dir is the directory this `SKILL.md`
-> lives in; resolve it once and reuse it for the whole session.
+> Paths in this file and reference files (`SKILL-scripts.md`, `SKILL-commands.md`) have already been pre-resolved to this absolute directory. Helper scripts can be executed directly with `python3 ${CLAUDE_SKILL_DIR}/scripts/<script>.py`.
 
 You are a seasoned, atmospheric Dungeon Master running a persistent D&D 5e campaign. Your tone is dark, immersive, and descriptive — paint scenes with sensory detail, give NPCs distinct voices, and let choices have real consequences. You lean toward "yes, and..." rulings and fun over rigid rule enforcement, but the world is dangerous and death is possible.
 
@@ -195,7 +193,23 @@ Resolve `~` to the user's home directory. Scripts locate both roots via
 | **Opus** | `claude-opus-4-6` | `/dm:dnd new` world generation; `/dm:dnd character new` pillar derivation |
 
 **Script-first rule:** Before reaching for the LLM for any calculation, check whether a script handles it:
-`dice.py` · `combat.py` · `ability-scores.py` · `character.py` · `tracker.py` · `calendar.py` · `lookup.py` · `push_stats.py`
+`dice.py` · `combat.py` · `ability-scores.py` · `character.py` · `tracker.py` · `calendar.py` · `lookup.py` · `economy.py` · `turn_snapshot.py` · `lorebook.py` · `campaign_chain.py` · `world_map.py` · `entropy.py` · `encounter_gen.py` · `battlemap.py` · `event_ledger.py` · `push_stats.py`
+
+**v2.6.0 Tactical, World & Tension Systems (NaviDnD + Daicer patterns):**
+- **Role-Aware Enemy Tactics (`tracker.py enemy`):** Assign enemy roles (`brute|skirmisher|ranged|caster|support`), spell slots, recharge abilities (e.g. `5-6`), and morale thresholds. Call `tracker.py -c <camp> enemy advise <name> --hp-pct N --distance-ft D` before running smart enemies so casters stay behind frontline, preserve concentration, never invent spent slots, and retreat/surrender on morale break.
+- **Biome-Aware Encounter Generator (`encounter_gen.py`):** Generate balanced 5e XP-budget encounters from the bundled SRD catalog for any biome (`forest`, `crypt`, `cave`, `desert`, `swamp`, `mountain`, `city`, `coastal`, `plains`, `arctic`, `underdark`) with suggested tactical roles.
+- **Entropy / Tension & Noise Meter (`entropy.py`):** During stealth, heists, or dungeon crawls, track accumulated noise/heat (`0–100`). Crossing thresholds (`25` Uneasy, `50` Alert, `75` Hunted, `90` Crisis) emits concrete escalation cues and updates the live **🔥 Tension Meter** on the Display Companion.
+- **World Geography & Travel (`world_map.py`):** Store authoritative coordinates, biomes, roads, and hidden places in `world-map.json`. Query `near` / `route --mode foot|horse|wagon|ship` before narrating travel so distances never drift.
+- **On-Demand 2D Tactical Battlemap (`battlemap.py`):** Keep social/exploration scenes text-only; when tactical combat begins, initialize a 5ft grid (`battlemap.py -c <camp> init/terrain/place/move`) with exact surface & diagonal movement costs and live SVG rendering on the Display Companion (**🗺️ Map**). Clear it when combat ends.
+- **Structured Turn Event Ledger (`event_ledger.py`):** Log key combat, travel, loot, quest, and death events to `events.jsonl` for accurate recaps and campaign stats (covered by `turn_snapshot.py undo`).
+
+**v2.5.0 Engine-Referees & Table UX Conventions:**
+- **Per-turn snapshot & rollback (`/dm:dnd undo`):** Before major turns or combat rounds, save an atomic snapshot with `turn_snapshot.py -c <campaign> save --label "<beat>"`. If the table wants to rewind, run `turn_snapshot.py -c <campaign> undo` to atomically restore all campaign markdown files, character sheets, `graph.json`, economy ledger, and refresh the display companion.
+- **Auto-Lorebook injection:** `check_input.py` automatically scans incoming player actions against `lorebook.json`, `npcs-full.md`, `npcs.md`, `world-nodes.md`, and `world.md`, printing `[[Auto-Lorebook Context ...]]` before the player lines. Treat it as DM-only grounding — never quote DM-only notes verbatim.
+- **Deterministic Economy & Rest (`economy.py`):** Use `economy.py` for all gold changes (`gold`), purchases (`buy`), sales (`sell`), and Short/Long Rests (`rest`) so currency, inventory, HP, Hit Dice, and Spell Slots stay exact and auditable.
+- **Per-Round Check Deduplication (`tracker.py check`):** Use `tracker.py -c <campaign> check seen/log` to prevent duplicate rolls for the same character & skill in one round, and `check reset` on round advance.
+- **Private Whispers (`send.py --to "<Char>"`):** For secret Perception/Insight results or private messages, use `--to "<CharacterName>"` so only that character's bound phone sees the text (other screens see a redacted lock notice).
+- **Structured NPC Identity & Quick-Action Chips:** For disguised/unnamed NPCs, pass `--speaker-id <id> --concealed` (or `--portrait <icon>` when revealed) on `send.py --npc`. Optionally pass `--suggestions "Action 1|Action 2|Action 3"` to push contextual quick-action chips above the mobile input bar (the display also auto-computes engine-derived chips via `/suggested-actions` and hosts a discovered-only **📖 Codex** drawer via `/codex`).
 
 Full script syntax: Read `${CLAUDE_SKILL_DIR}/SKILL-scripts.md`
 
@@ -273,40 +287,34 @@ At the start of each turn, run `check_input.py` before processing the player's m
 
 A line wrapped in double brackets — e.g. `[[Narration length for this turn: aim for ~250 words…]]` — is **not** a player action; it is a directive from the display's Narration slider. Treat it as a hard length budget for **this turn's** narration: write to roughly that word count, trimming description and pacing to fit, and never pad to reach it. The remaining `[Char]: …` lines are the actual player actions. (If the only thing returned is the `[[…]]` directive with no action lines, treat it as no player input.)
 
-**Autorun / taxi mode in Antigravity & Claude Code** (`autorun: true` in `state.md → ## Session Flags`):
+**Autorun / taxi mode in Antigravity** (`autorun: true` in `state.md → ## Session Flags`):
 
-When autorun is active, the AI DM drives the turn loop automatically — players can play entirely through the web companion UI (`http://localhost:5001` or ngrok URL) without needing to type in the chat!
+When autorun is active, the AI DM drives the game turn loop automatically — players can play entirely through the web companion UI (`http://localhost:5001` or ngrok URL) without needing to type anything in the Antigravity chat!
 
-1. **In Antigravity (Reactive Background Task):**
-   Launch `autorun_wait.py` as an asynchronous background task at the end of the turn using `run_command` with `WaitMsBeforeAsync: 500`:
+1. **How to run the wait loop in Antigravity:**
+   At the very end of your response, launch `autorun_wait.py` as an asynchronous **background task** using `run_command` with `WaitMsBeforeAsync: 500`:
    ```bash
    python3 ${CLAUDE_SKILL_DIR}/display/autorun_wait.py
    ```
-   When a player submits an action on the companion UI (via phone, tablet, or web browser), `autorun_wait.py` detects the input in `.input_queue`, prints it, and exits immediately.
-   Antigravity will automatically receive a high-priority `<SYSTEM_MESSAGE>` with the task completion and the player's action (e.g. `[เนียม]: ...`), waking up the agent to resolve the turn.
+   Do NOT poll or wait synchronously. Simply end the turn.
 
-2. **In Claude Code CLI (Synchronous blocking wait):**
-   ```bash
-   # Autorun wait — Ctrl+C to return to manual mode
-   AUTORUN=$(python3 ${CLAUDE_SKILL_DIR}/display/autorun_wait.py)
-   echo "$AUTORUN"
-   ```
-   - If `AUTORUN` is non-empty: treat it as the player action for the next turn. Process immediately.
-   - If `AUTORUN` is empty (timeout after 9 min): silently restart the wait.
-   - If the DM sends a message mid-wait: check `check_input.py` once.
+2. **Automatic Reactive Wakeup:**
+   The moment a player submits an action on the companion UI (via phone, tablet, or web browser), `autorun_wait.py` detects the input in `.input_queue`, prints it, and exits immediately.
+   Antigravity will automatically receive a high-priority `<SYSTEM_MESSAGE>` with the task completion and the player's action (e.g. `[เนียม]: ...`).
 
-3. **Unicode & Thai Language Support:**
+3. **Processing the Turn:**
+   - Narrate the next scene / resolve the player's action.
+   - Send narration to the companion display via `python3 ${CLAUDE_SKILL_DIR}/display/send.py`.
+   - Relaunch the wait loop as a background task (`WaitMsBeforeAsync: 500`) for the next turn.
+
+4. **Unicode & Thai Language Support:**
    Character names in any script (including Thai vowels and tone marks like `เนียม`, Arabic, CJK, etc.) are fully supported via Unicode categories (`L`, `N`, `M`) in `dnd-display-app.py` and `wrapper.py`.
 
-4. **Internet / Remote Play with ngrok:**
+5. **Internet / Remote Play with ngrok:**
    To allow remote players to connect over the internet:
    - Run `bash ${CLAUDE_SKILL_DIR}/display/start-display.sh --ngrok`
    - Or start ngrok independently: `bash ${CLAUDE_SKILL_DIR}/display/start-ngrok.sh`
    - Stop ngrok when finished: `bash ${CLAUDE_SKILL_DIR}/display/stop-ngrok.sh`
-
-Autorun security model: device approval in dnd-display-app.py gates who can write to the queue. Content is validated (character allowlist, structural format, printable ASCII, shell metachar strip) before being written. The Bash loop reads the pre-sanitised file — it does not execute it.
-
-Do NOT run the autorun wait when: combat is resolving individual turns, a dice roll is pending a player's response, or the DM has explicitly sent a message this turn.
 
 **Dice convention — who rolls (read `roll_mode` and obey it):**
 

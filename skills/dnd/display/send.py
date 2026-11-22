@@ -383,6 +383,26 @@ def main() -> None:
         help="Send as NPC dialogue with amber styling and character name header",
     )
     parser.add_argument(
+        "--speaker-id", metavar="ID",
+        help="Stable opaque speaker ID for --npc (separates identity from displayed name)",
+    )
+    parser.add_argument(
+        "--portrait", metavar="URL_OR_ICON",
+        help="Optional portrait URL or icon filename for --npc dialogue bubble",
+    )
+    parser.add_argument(
+        "--concealed", action="store_true",
+        help="Mark --npc speaker as concealed/disguised (hides true identity & portrait)",
+    )
+    parser.add_argument(
+        "--to", metavar="CHAR[,CHAR2]",
+        help="Private whisper target character(s) — only their bound device(s) see the text",
+    )
+    parser.add_argument(
+        "--suggestions", metavar="A|B|C",
+        help="Pipe-separated quick-action chip labels to push above the player input bar",
+    )
+    parser.add_argument(
         "--dice", action="store_true",
         help="Send as a dice result (inline gold styling)",
     )
@@ -650,10 +670,25 @@ def main() -> None:
                 payload["player"] = args.player
             elif args.npc:
                 payload["npc"] = args.npc
+                if args.speaker_id:
+                    payload["speaker_id"] = args.speaker_id.strip()
+                if args.portrait and not args.concealed:
+                    payload["portrait"] = args.portrait.strip()
+                if args.concealed:
+                    payload["concealed"] = True
             elif args.dice:
                 payload["dice"] = True
             elif args.tutor:
                 payload["tutor"] = True
+
+            if args.to:
+                targets = [t.strip() for t in args.to.split(",") if t.strip()]
+                if targets:
+                    payload["whisper_to"] = targets
+            if args.suggestions:
+                chips = [c.strip() for c in args.suggestions.split("|") if c.strip()][:4]
+                if chips:
+                    payload["suggestions"] = chips
 
             issues = _validate_payload(payload, "chunk")
             if issues:

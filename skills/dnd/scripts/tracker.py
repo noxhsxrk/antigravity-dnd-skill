@@ -39,6 +39,7 @@ Usage:
 
 import json
 import os
+import random
 import sys
 import subprocess
 import argparse
@@ -389,11 +390,11 @@ def cmd_saves(campaign: str, entity_name: str, action: str) -> None:
 
 def cmd_status(campaign: str, filter_name: str = "") -> None:
     state = _load(campaign)
-    if not state:
+    entities = [v for k, v in state.items() if not k.startswith("_") and isinstance(v, dict)]
+    if not entities:
         print("  (no tracked entities)")
         return
 
-    entities = list(state.values())
     if filter_name:
         entities = [e for e in entities if filter_name.lower() in e["name"].lower()]
 
@@ -430,18 +431,219 @@ def cmd_status(campaign: str, filter_name: str = "") -> None:
             print(f"  {name}: clean")
 
 
+MAX_CHECK_DC = 30  # D&D 5e "Nearly Impossible" ceiling (DiceFrame rules-and-dice guard)
+
+
+def cmd_check(
+    campaign: str,
+    action: str,
+    entity: str = "",
+    skill: str = "",
+    dc: "int | None" = None,
+    result: str = "",
+) -> None:
+    """Per-round check deduplication & DC ceiling guard."""
+    state = _load(campaign)
+    checks: list = state.setdefault("_round_checks", [])
+
+    if action == "reset":
+        count = len(checks)
+        state["_round_checks"] = []
+        _save(campaign, state)
+        print(f"  Reset round check log ({count} cleared).")
+        return
+
+    if action == "list":
+        if not checks:
+            print("  (no checks logged this round)")
+            return
+        for c in checks:
+            dc_s = f" DC {c['dc']}" if c.get("dc") is not None else ""
+            res_s = f" → {c['result']}" if c.get("result") else ""
+            print(f"  {c['entity']} — {c['skill']}{dc_s}{res_s}")
+        return
+
+    key_ent = entity.strip().lower()
+    key_skl = skill.strip().lower()
+    existing = [
+        c for c in checks
+        if c.get("entity", "").lower() == key_ent and c.get("skill", "").lower() == key_skl
+    ]
+
+    if action == "seen":
+        if existing:
+            c = existing[-1]
+            print(f"  DUPLICATE: {c['entity']} already rolled {c['skill']} this round → {c.get('result', '?')}")
+            sys.exit(1)
+        print(f"  OK: {entity} has not rolled {skill} this round.")
+        return
+
+    if action == "log":
+        if dc is not None and dc > MAX_CHECK_DC:
+            print(f"  ⚠ DC {dc} exceeds 5e ceiling ({MAX_CHECK_DC}); clamping advisory.", file=sys.stderr)
+        if existing:
+            print(f"  ⚠ Duplicate check in same round: {entity} — {skill} (previous: {existing[-1].get('result', '?')})", file=sys.stderr)
+        checks.append({
+            "entity": entity.strip(),
+            "skill": skill.strip(),
+            "dc": dc,
+            "result": result.strip(),
+            "at": datetime.now(timezone.utc).isoformat(),
+        })
+        _save(campaign, state)
+        dc_s = f" (DC {dc})" if dc is not None else ""
+        res_s = f" → {result}" if result else ""
+        print(f"  Logged check: {entity} — {skill}{dc_s}{res_s}")
+
+
+ENEMY_ROLES = ("brute", "skirmisher", "ranged", "caster", "support")
+
+
+def cmd_enemy(
+    campaign: str,
+    action: str,
+    entity: str,
+    role: str = "brute",
+    slots_spec: str = "",
+    recharge_spec: str = "",
+    morale: int = 25,
+    spend_slot: "int | None" = None,
+    ability: str = "",
+    hp_pct: int = 100,
+    distance_ft: int = 30,
+) -> None:
+    """Role-aware enemy tactics & monster spell-slot / recharge tracker (NaviDnD pattern)."""
+    state = _load(campaign)
+    ent = _entity(state, entity)
+    prof = ent.setdefault("enemy_profile", {
+        "role": "brute",
+        "slots": {},        # {"1": {"max": 2, "used": 0}}
+        "recharges": {},    # {"Fire Breath": {"min": 5, "ready": True}}
+        "morale_pct": 25,
+    })
+
+    if action == "set":
+        prof["role"] = role
+        prof["morale_pct"] = max(0, min(100, int(morale)))
+        if slots_spec:
+            slots = {}
+            for part in slots_spec.split(","):
+                if ":" in part:
+                    lvl_s, cnt_s = part.split(":", 1)
+                    lvl_k = lvl_s.strip()
+                    cnt = int(cnt_s.strip())
+                    slots[lvl_k] = {"max": cnt, "used": 0}
+            prof["slots"] = slots
+        if recharge_spec:
+            rechs = {}
+            for part in recharge_spec.split(","):
+                if ":" in part:
+                    ab, rng_s = part.split(":", 1)
+                    min_roll = int(rng_s.strip().split("-")[0])
+                    rechs[ab.strip()] = {"min": min_roll, "ready": True}
+            prof["recharges"] = rechs
+        _save(campaign, state)
+        print(f"  Enemy profile set: {ent['name']} [role={prof['role']}, morale<={prof['morale_pct']}%, "
+              f"slots={len(prof['slots'])} tier(s), recharges={list(prof['recharges'].keys())}]")
+        return
+
+    if action == "spend":
+        if spend_slot is not None:
+            lk = str(spend_slot)
+            if lk not in prof["slots"]:
+                print(f"  ERROR: {ent['name']} has no level-{lk} spell slots.", file=sys.stderr)
+                sys.exit(1)
+            sl = prof["slots"][lk]
+            if sl["used"] >= sl["max"]:
+                print(f"  ERROR: {ent['name']} is out of level-{lk} slots ({sl['used']}/{sl['max']}).", file=sys.stderr)
+                sys.exit(1)
+            sl["used"] += 1
+            _save(campaign, state)
+            print(f"  {ent['name']} spent L{lk} slot ({sl['max'] - sl['used']}/{sl['max']} remaining).")
+            return
+        if ability:
+            match_k = next((k for k in prof["recharges"] if k.lower() == ability.lower()), None)
+            if not match_k:
+                print(f"  ERROR: Ability '{ability}' not tracked for {ent['name']}.", file=sys.stderr)
+                sys.exit(1)
+            prof["recharges"][match_k]["ready"] = False
+            _save(campaign, state)
+            print(f"  {ent['name']} used '{match_k}' (now recharging on {prof['recharges'][match_k]['min']}-6).")
+            return
+        print("  Specify --slot <N> or --ability <NAME>.", file=sys.stderr)
+        sys.exit(2)
+
+    if action == "recharge":
+        if not prof["recharges"]:
+            print(f"  {ent['name']} has no recharge abilities.")
+            return
+        for ab, info in prof["recharges"].items():
+            if ability and ab.lower() != ability.lower():
+                continue
+            if info.get("ready"):
+                print(f"  {ent['name']} — {ab}: already READY.")
+                continue
+            roll = random.randint(1, 6)
+            if roll >= int(info["min"]):
+                info["ready"] = True
+                print(f"  {ent['name']} — {ab}: d6 = {roll} (needs {info['min']}+) → RECHARGED!")
+            else:
+                print(f"  {ent['name']} — {ab}: d6 = {roll} (needs {info['min']}+) → still recharging.")
+        _save(campaign, state)
+        return
+
+    if action == "advise":
+        r = prof.get("role", "brute")
+        conc = ent.get("concentration")
+        slots_left = {k: v["max"] - v["used"] for k, v in prof.get("slots", {}).items() if v["max"] > v["used"]}
+        ready_rechs = [k for k, v in prof.get("recharges", {}).items() if v.get("ready")]
+        tips = []
+        if hp_pct <= prof.get("morale_pct", 25):
+            tips.append("MORALE BREAK: consider Disengage + Flee, Dash to cover, or surrender rather than fighting blindly to 0 HP.")
+        if conc:
+            tips.append(f"CONCENTRATING on '{conc}': avoid casting another concentration spell; protect position / stay behind cover.")
+        if ready_rechs:
+            tips.append(f"RECHARGE READY ({', '.join(ready_rechs)}): prioritize lining up high-value target(s).")
+        if r == "caster":
+            if distance_ft <= 5:
+                tips.append("CASTER IN MELEE: evaluate Disengage / Misty Step / defensive spell before casting ranged attacks at disadvantage.")
+            elif slots_left:
+                tips.append(f"CASTER AT RANGE ({distance_ft} ft): stay behind frontline; cast control/AoE using slots {slots_left}.")
+            else:
+                tips.append("CASTER OUT OF SLOTS: use ranged cantrips from cover — do NOT invent extra slots or charge into weak melee.")
+        elif r == "support":
+            tips.append("SUPPORT: check if a wounded frontline ally needs healing/buff more than dealing minor damage; stay protected.")
+        elif r == "ranged":
+            if distance_ft <= 5:
+                tips.append("RANGED IN MELEE: disengage to regain firing lane or switch to backup melee weapon.")
+            else:
+                tips.append(f"RANGED ({distance_ft} ft): maintain distance, use partial cover, focus exposed casters/unarmored PCs.")
+        elif r == "skirmisher":
+            tips.append("SKIRMISHER: flank isolated targets, hit-and-run using mobility/stealth, avoid trading blows with heavy tanks.")
+        else:
+            tips.append("BRUTE: hold chokepoints, screen allied casters/archers, pressure closest melee threat.")
+        print(f"  Tactical Advisory — {ent['name']} [{r.upper()}, HP {hp_pct}%, dist {distance_ft}ft]:")
+        for t in tips:
+            print(f"    • {t}")
+
+
 def cmd_clear(campaign: str, clear_all: bool = False) -> None:
     state = _load(campaign)
-    for ent in state.values():
+    ent_count = 0
+    for k, ent in state.items():
+        if k.startswith("_") or not isinstance(ent, dict):
+            continue
         ent["conditions"] = []
         ent["concentration"] = None
         ent["effects"] = []
         _push_conditions(ent["name"], [])
         if clear_all:
             ent["death_saves"] = {"successes": 0, "failures": 0, "stable": False}
+        ent_count += 1
+    state["_round_checks"] = []
     _save(campaign, state)
-    scope = "all state" if clear_all else "conditions and concentration"
-    print(f"  Cleared {scope} for {len(state)} entities.")
+    scope = "all state" if clear_all else "conditions, concentration, and round checks"
+    print(f"  Cleared {scope} for {ent_count} entities.")
 
 
 # ─── Main ────────────────────────────────────────────────────────────────────
@@ -479,6 +681,27 @@ def main() -> None:
     sav.add_argument("entity")
     sav.add_argument("action", choices=["success", "failure", "stable", "reset"])
 
+    # check (per-round deduplication + DC ceiling)
+    chk = sub.add_parser("check", help="Per-round check deduplication & DC guard")
+    chk.add_argument("action", choices=["log", "seen", "list", "reset"])
+    chk.add_argument("entity", nargs="?", default="")
+    chk.add_argument("skill", nargs="?", default="")
+    chk.add_argument("--dc", type=int, default=None)
+    chk.add_argument("--result", default="")
+
+    # enemy (role-aware tactics + spell/recharge resource tracker)
+    enm = sub.add_parser("enemy", help="Enemy tactical role, spell slots, recharge & advisory")
+    enm.add_argument("action", choices=["set", "spend", "recharge", "advise"])
+    enm.add_argument("entity")
+    enm.add_argument("--role", choices=ENEMY_ROLES, default="brute")
+    enm.add_argument("--slots", default="", help='Spell slots e.g. "1:3,2:2"')
+    enm.add_argument("--recharge", default="", help='Recharge abilities e.g. "Fire Breath:5-6"')
+    enm.add_argument("--morale", type=int, default=25, help="HP%% threshold to consider retreat/surrender")
+    enm.add_argument("--slot", type=int, default=None, help="Spell slot level to spend")
+    enm.add_argument("--ability", default="", help="Recharge ability name")
+    enm.add_argument("--hp-pct", type=int, default=100, help="Current HP percentage for advise")
+    enm.add_argument("--distance-ft", type=int, default=30, help="Distance to nearest PC in feet")
+
     # status
     stat = sub.add_parser("status", help="Show current tracking state")
     stat.add_argument("entity", nargs="?", default="")
@@ -500,6 +723,15 @@ def main() -> None:
         cmd_concentrate(args.campaign, args.entity, args.spell)
     elif args.cmd == "saves":
         cmd_saves(args.campaign, args.entity, args.action)
+    elif args.cmd == "check":
+        cmd_check(args.campaign, args.action, args.entity, args.skill, dc=args.dc, result=args.result)
+    elif args.cmd == "enemy":
+        cmd_enemy(
+            args.campaign, args.action, args.entity,
+            role=args.role, slots_spec=args.slots, recharge_spec=args.recharge,
+            morale=args.morale, spend_slot=args.slot, ability=args.ability,
+            hp_pct=args.hp_pct, distance_ft=args.distance_ft,
+        )
     elif args.cmd == "status":
         cmd_status(args.campaign, args.entity)
     elif args.cmd == "clear":

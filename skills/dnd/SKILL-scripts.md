@@ -2,7 +2,7 @@
 
 Full syntax for all Python helper scripts. Load this file once at `/dm:dnd load`, then it stays in context for the session.
 
-> **Path note:** commands below use `${CLAUDE_SKILL_DIR}` for the skill directory. This file is read verbatim, so that token is **not** auto-expanded here — substitute the absolute skill-dir path (from `SKILL.md`) before running any command, or it will fail with a broken `/scripts/…` path.
+> **Path note:** All helper scripts are located in `${CLAUDE_SKILL_DIR}/scripts/` and can be invoked directly with the absolute commands shown below.
 
 ---
 
@@ -574,3 +574,120 @@ bash ${CLAUDE_SKILL_DIR}/display/stop-ngrok.sh
 ```
 Public URL is saved to `${CLAUDE_SKILL_DIR}/display/.ngrok_url`.
 
+
+---
+
+## v2.5.0 Scripts & Display Flags
+
+### Per-Turn Snapshot & Rollback — `scripts/turn_snapshot.py`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/turn_snapshot.py -c <campaign> save --label "Before ambush"
+python3 ${CLAUDE_SKILL_DIR}/scripts/turn_snapshot.py -c <campaign> list
+python3 ${CLAUDE_SKILL_DIR}/scripts/turn_snapshot.py -c <campaign> undo [--to N] [--dry-run]
+```
+
+### Deterministic Economy & Rest — `scripts/economy.py`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/economy.py -c <campaign> gold --char "<Name>" --delta -15gp --reason "Bribe"
+python3 ${CLAUDE_SKILL_DIR}/scripts/economy.py -c <campaign> buy  --char "<Name>" --item "Healing Potion" --cost 50gp
+python3 ${CLAUDE_SKILL_DIR}/scripts/economy.py -c <campaign> sell --char "<Name>" --item "Dagger" --value 1gp
+python3 ${CLAUDE_SKILL_DIR}/scripts/economy.py -c <campaign> rest --type long --char all
+python3 ${CLAUDE_SKILL_DIR}/scripts/economy.py -c <campaign> rest --type short --char "<Name>" --hit-dice 2 --heal 11
+python3 ${CLAUDE_SKILL_DIR}/scripts/economy.py -c <campaign> ledger --limit 10
+```
+
+### Auto-Lorebook & Card Import/Export — `scripts/lorebook.py`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> scan --text "<action>" --budget 1400
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> add --name "<Title>" --keys "k1,k2" --content "..." [--dm-only]
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> import-lorebook <file.json> [--dry-run]
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> export-lorebook <out.json>
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> import-card <card.json>
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> export-card --char "<Name>" <out.json>
+```
+
+### Campaign Chaining — `scripts/campaign_chain.py`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/campaign_chain.py --from <old> --to <new> [--title "..."] [--no-heal]
+```
+
+### Per-Round Check Deduplication — `scripts/tracker.py check`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/tracker.py -c <campaign> check seen "<Actor>" "Perception"
+python3 ${CLAUDE_SKILL_DIR}/scripts/tracker.py -c <campaign> check log  "<Actor>" "Perception" --dc 15 --result "18 (pass)"
+python3 ${CLAUDE_SKILL_DIR}/scripts/tracker.py -c <campaign> check list
+python3 ${CLAUDE_SKILL_DIR}/scripts/tracker.py -c <campaign> check reset
+```
+
+### Hybrid Entity-Tag Search & Stale-Fact Warnings — `scripts/campaign_search.py`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/campaign_search.py -c <campaign> <keyword> --entity npc:Aldon
+```
+
+### Display Companion v2.5.0 Flags (`display/send.py`)
+```bash
+# Private whisper (visible only on target character's phone)
+python3 ${CLAUDE_SKILL_DIR}/display/send.py --to "เนียม" << 'DNDEND'
+คุณสังเกตเห็นรอยสักของกลุ่มเงาใต้แขนเสื้อพ่อค้า
+DNDEND
+
+# Structured NPC dialogue with concealed identity / portrait
+python3 ${CLAUDE_SKILL_DIR}/display/send.py --npc "ชายสวมฮู้ด" --speaker-id "npc_aldon" --concealed << 'DNDEND'
+"อย่าเอ่ยชื่อข้าที่นี่"
+DNDEND
+
+# Push custom quick-action chips above the player input bar
+python3 ${CLAUDE_SKILL_DIR}/display/send.py --suggestions "เจรจาต่อรอง|ชักอาวุธ|แอบสะกดรอย" << 'DNDEND'
+ชายสวมฮู้ดวางถุงเหรียญลงบนโต๊ะ...
+DNDEND
+```
+
+---
+
+## v2.6.0 Scripts
+
+### Role-Aware Enemy Tactics & Resources — `scripts/tracker.py enemy`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/tracker.py -c <camp> enemy set "Goblin Shaman" --role caster --slots "1:3,2:1" --morale 30
+python3 ${CLAUDE_SKILL_DIR}/scripts/tracker.py -c <camp> enemy spend "Goblin Shaman" --slot 1
+python3 ${CLAUDE_SKILL_DIR}/scripts/tracker.py -c <camp> enemy recharge "Young Dragon" --ability "Fire Breath"
+python3 ${CLAUDE_SKILL_DIR}/scripts/tracker.py -c <camp> enemy advise "Goblin Shaman" --hp-pct 40 --distance-ft 25
+```
+
+### Biome-Aware CR Encounter Generator — `scripts/encounter_gen.py`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/encounter_gen.py --biome forest --party-level 3 --party-size 4 --difficulty medium [--seed 42]
+```
+
+### Entropy / Tension & Noise Meter — `scripts/entropy.py`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/entropy.py -c <camp> add --delta 15 --reason "Kicked down door"
+python3 ${CLAUDE_SKILL_DIR}/scripts/entropy.py -c <camp> status
+python3 ${CLAUDE_SKILL_DIR}/scripts/entropy.py -c <camp> reset
+```
+
+### World Geography & Travel Calculator — `scripts/world_map.py`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/world_map.py -c <camp> add-place --name "Oakhaven" --x 0 --y 0 --biome forest --kind town
+python3 ${CLAUDE_SKILL_DIR}/scripts/world_map.py -c <camp> connect --a "Oakhaven" --b "Iron Mine"
+python3 ${CLAUDE_SKILL_DIR}/scripts/world_map.py -c <camp> near --radius 60
+python3 ${CLAUDE_SKILL_DIR}/scripts/world_map.py -c <camp> route --to "Iron Mine" --mode horse
+python3 ${CLAUDE_SKILL_DIR}/scripts/world_map.py -c <camp> travel --to "Iron Mine" --mode horse
+```
+
+### On-Demand 2D Tactical Battlemap — `scripts/battlemap.py`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/battlemap.py -c <camp> init --width 12 --height 10 --title "Bridge Ambush"
+python3 ${CLAUDE_SKILL_DIR}/scripts/battlemap.py -c <camp> terrain --kind difficult --cells 5,4 5,5
+python3 ${CLAUDE_SKILL_DIR}/scripts/battlemap.py -c <camp> place --name "เนียม" --x 1 --y 5 --kind pc --hp 20/20
+python3 ${CLAUDE_SKILL_DIR}/scripts/battlemap.py -c <camp> move --name "เนียม" --x 4 --y 5 --speed 30
+python3 ${CLAUDE_SKILL_DIR}/scripts/battlemap.py -c <camp> distance --a "เนียม" --b "Goblin Shaman"
+python3 ${CLAUDE_SKILL_DIR}/scripts/battlemap.py -c <camp> clear
+```
+
+### Structured Turn Event Ledger — `scripts/event_ledger.py`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/event_ledger.py -c <camp> log --type combat --actor "เนียม" --summary "Defeated Goblin Shaman"
+python3 ${CLAUDE_SKILL_DIR}/scripts/event_ledger.py -c <camp> tail --limit 10
+python3 ${CLAUDE_SKILL_DIR}/scripts/event_ledger.py -c <camp> stats
+```

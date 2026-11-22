@@ -3770,6 +3770,286 @@
       padding: 16px !important;
     }
   }
+/* ─── v2.5.0: Quick-Action Chips, Whispers, Codex, Bubbles & Visual Juice ─── */
+#quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.quick-chip {
+  background: rgba(212, 168, 83, 0.14);
+  border: 1px solid rgba(212, 168, 83, 0.38);
+  color: #f3dfb6;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s, border-color 0.15s;
+}
+.quick-chip:hover {
+  background: rgba(212, 168, 83, 0.28);
+  border-color: rgba(243, 223, 182, 0.7);
+  transform: translateY(-1px);
+}
+
+.whisper-block {
+  border-left: 3px solid #9f7aea;
+  background: rgba(107, 70, 193, 0.16);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  color: #e9d8fd;
+}
+.whisper-header {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c4b5fd;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.whisper-redacted {
+  font-size: 12px;
+  font-style: italic;
+  color: rgba(196, 181, 253, 0.65);
+  margin: 6px 0;
+  padding: 4px 10px;
+  border-left: 2px dashed rgba(159, 122, 234, 0.45);
+}
+
+/* Structured NPC Dialogue Bubble mode & portrait/concealed badge */
+body.dialogue-bubbles .npc-block {
+  border-radius: 14px 14px 14px 4px;
+  background: rgba(217, 155, 67, 0.12);
+  border: 1px solid rgba(217, 155, 67, 0.32);
+  padding: 12px 16px;
+}
+.npc-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.npc-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(217, 155, 67, 0.6);
+}
+.npc-concealed-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  color: #cbd5e1;
+}
+
+/* Codex / Adventure Book Drawer */
+#codex-btn, #bubble-mode-btn {
+  position: fixed;
+  top: 14px;
+  z-index: 420;
+  background: rgba(20, 17, 24, 0.82);
+  border: 1px solid rgba(212, 168, 83, 0.35);
+  color: #e8d5b0;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+#codex-btn { left: 14px; }
+#bubble-mode-btn { left: 96px; }
+#codex-btn:hover, #bubble-mode-btn:hover { background: rgba(212, 168, 83, 0.22); }
+#codex-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: min(380px, 92vw);
+  height: 100vh;
+  background: rgba(16, 14, 22, 0.96);
+  border-right: 1px solid rgba(212, 168, 83, 0.35);
+  z-index: 520;
+  transform: translateX(-105%);
+  transition: transform 0.24s ease;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  box-sizing: border-box;
+  color: #ece3d2;
+}
+#codex-drawer.open { transform: translateX(0); }
+.codex-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.codex-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.codex-tab {
+  flex: 1;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(212,168,83,0.25);
+  color: #d6c7a9;
+  border-radius: 6px;
+  padding: 5px 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.codex-tab.active {
+  background: rgba(212,168,83,0.25);
+  color: #fff6e0;
+  border-color: rgba(212,168,83,0.7);
+}
+#codex-body {
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.codex-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(212,168,83,0.18);
+  border-radius: 8px;
+  padding: 10px;
+}
+.codex-card-title { font-weight: 600; color: #f1d399; font-size: 13px; margin-bottom: 4px; }
+.codex-card-text { font-size: 12px; color: #d5ccbc; line-height: 1.45; white-space: pre-wrap; }
+
+/* Game Feel / Visual Juice */
+#danger-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 350;
+  opacity: 0;
+  box-shadow: inset 0 0 90px rgba(220, 38, 38, 0.55);
+  transition: opacity 0.6s ease;
+}
+#danger-vignette.active {
+  opacity: 1;
+  animation: dangerPulse 2.4s ease-in-out infinite;
+}
+@keyframes dangerPulse {
+  0%, 100% { box-shadow: inset 0 0 70px rgba(220, 38, 38, 0.35); }
+  50%      { box-shadow: inset 0 0 115px rgba(220, 38, 38, 0.68); }
+}
+.dice-block.nat20 {
+  box-shadow: 0 0 16px rgba(250, 204, 21, 0.55);
+  border-color: #facc15 !important;
+  animation: nat20Glow 1.1s ease-out;
+}
+@keyframes nat20Glow {
+  0%   { transform: scale(0.97); box-shadow: 0 0 28px rgba(250, 204, 21, 0.9); }
+  100% { transform: scale(1); }
+}
+.dice-block.nat1 {
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+  border-color: #ef4444 !important;
+  animation: nat1Shake 0.45s ease-in-out;
+}
+@keyframes nat1Shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+.float-delta {
+  position: fixed;
+  right: 26px;
+  bottom: 90px;
+  z-index: 600;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: floatUpFade 1.8s ease-out forwards;
+}
+.float-delta.dmg  { background: rgba(220,38,38,0.88); color: #fff; }
+.float-delta.heal { background: rgba(22,163,74,0.88); color: #fff; }
+.float-delta.info { background: rgba(124,58,237,0.88); color: #fff; }
+@keyframes floatUpFade {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.92); }
+  15%  { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-44px) scale(1.04); }
+}
+/* v2.6.0: Entropy Tension Meter & On-Demand 2D Tactical Battlemap */
+#battlemap-btn {
+  position: fixed;
+  top: 14px;
+  left: 192px;
+  z-index: 420;
+  background: rgba(20, 17, 24, 0.82);
+  border: 1px solid rgba(212, 168, 83, 0.35);
+  color: #e8d5b0;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  display: none;
+}
+#battlemap-btn.active { display: inline-block; border-color: #f59e0b; box-shadow: 0 0 10px rgba(245,158,11,0.35); }
+#entropy-pill {
+  position: fixed;
+  top: 48px;
+  left: 14px;
+  z-index: 415;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: rgba(20, 14, 24, 0.86);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #fde68a;
+  backdrop-filter: blur(6px);
+}
+#entropy-pill.visible { display: flex; }
+#entropy-bar-wrap {
+  width: 64px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  overflow: hidden;
+}
+#entropy-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+  transition: width 0.4s ease;
+}
+#battlemap-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 540;
+  background: rgba(8, 8, 14, 0.82);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(5px);
+}
+#battlemap-modal.open { display: flex; }
+#battlemap-card {
+  background: #14121c;
+  border: 1px solid rgba(212, 168, 83, 0.45);
+  border-radius: 12px;
+  padding: 16px;
+  max-width: 94vw;
+  max-height: 90vh;
+  overflow: auto;
+  color: #f1e6d2;
+}
+#battlemap-svg-wrap { margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -3913,6 +4193,39 @@
 <!-- DM-side waiting badge for active dice-requests (driven by SSE dice_pending) -->
 <div id="dice-pending-badge"></div>
 
+<!-- v2.5.0: Danger Vignette + Codex Drawer + Dialogue Mode Toggle -->
+<div id="danger-vignette" aria-hidden="true"></div>
+<button id="codex-btn" type="button" title="Adventure Book / Discovered Codex">📖 Codex</button>
+<button id="bubble-mode-btn" type="button" title="Toggle Prose / Dialogue Bubbles">💬 Bubbles</button>
+<button id="battlemap-btn" type="button" title="Open On-Demand Tactical Battlemap">🗺️ Map</button>
+<div id="entropy-pill" title="Dungeon / World Tension Meter">
+  <span id="entropy-label">🔥 CALM 0%</span>
+  <div id="entropy-bar-wrap"><div id="entropy-bar-fill"></div></div>
+</div>
+<div id="battlemap-modal" aria-label="Tactical Battlemap">
+  <div id="battlemap-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px">
+      <strong id="battlemap-title">🗺️ Tactical Battlemap</strong>
+      <button id="battlemap-close" type="button" style="background:none;border:none;color:#d6c7a9;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div style="font-size:11px;color:#b8ad99;margin-top:4px">5 ft squares · Blue=PC · Red=Enemy · Gray=Wall · Brown=Difficult · Cyan=Water · Orange=Hazard</div>
+    <div id="battlemap-svg-wrap"></div>
+  </div>
+</div>
+<aside id="codex-drawer" aria-label="Adventure Codex">
+  <div class="codex-head">
+    <strong>📖 Adventure Codex</strong>
+    <button id="codex-close" type="button" style="background:none;border:none;color:#d6c7a9;font-size:18px;cursor:pointer">✕</button>
+  </div>
+  <div class="codex-tabs">
+    <button class="codex-tab active" data-codex="npcs" type="button">NPCs</button>
+    <button class="codex-tab" data-codex="quests" type="button">Quests</button>
+    <button class="codex-tab" data-codex="locations" type="button">Places</button>
+    <button class="codex-tab" data-codex="factions" type="button">Factions</button>
+  </div>
+  <div id="codex-body"></div>
+</aside>
+
 <!-- Player input panel — submit actions from the display companion -->
 <div id="input-panel" class="collapsed">
   <div id="input-panel-header">
@@ -3944,6 +4257,7 @@
     <div id="char-tabs" data-tab-section="move">
       <button class="char-tab active" data-char="Everybody">Everybody</button>
     </div>
+    <div id="quick-chips" data-tab-section="move" aria-label="Suggested actions"></div>
     <textarea id="player-input-text" rows="2" placeholder="Enter action or dialogue…" maxlength="500"
               data-tab-section="move"></textarea>
     <div id="input-footer" data-tab-section="move">
@@ -5183,22 +5497,62 @@ function _renderActionBlockNow(name, text, isReplay) {
   _reanchorCursor();
 }
 
-// ── NPC dialogue block ───────────────────────────────────────────────
-function renderNPCBlock(name, text, isReplay) {
-  _deferBlock(() => _renderNPCBlockNow(name, text, isReplay), isReplay);
+// ── Private Whisper block (v2.5.0) ───────────────────────────────────
+function renderWhisperBlock(text, targets, redacted, isReplay) {
+  _deferBlock(() => {
+    _flushForBlock();
+    const block = document.createElement('div');
+    block.className = redacted ? 'whisper-redacted' : 'whisper-block';
+    if (isReplay) block.style.opacity = '0.68';
+    if (redacted) {
+      block.textContent = text || ('🔒 Private whisper to ' + (targets || []).join(', '));
+    } else {
+      const hdr = document.createElement('div');
+      hdr.className = 'whisper-header';
+      hdr.textContent = '🔒 Private Whisper' + (targets && targets.length ? ' · ' + targets.join(', ') : '');
+      block.appendChild(hdr);
+      const p = document.createElement('p');
+      p.textContent = text;
+      block.appendChild(p);
+    }
+    textContent.appendChild(block);
+    _reanchorCursor();
+  }, isReplay);
 }
 
-function _renderNPCBlockNow(name, text, isReplay) {
+// ── NPC dialogue block ───────────────────────────────────────────────
+function renderNPCBlock(name, text, isReplay, meta) {
+  _deferBlock(() => _renderNPCBlockNow(name, text, isReplay, meta), isReplay);
+}
+
+function _renderNPCBlockNow(name, text, isReplay, meta) {
   _flushForBlock();
 
   const block = document.createElement('div');
   block.className = 'npc-block';
+  if (meta && meta.speaker_id) block.dataset.speakerId = meta.speaker_id;
   if (isReplay) block.style.opacity = '0.65';
 
+  const headerRow = document.createElement('div');
+  headerRow.className = 'npc-header-row';
+  if (meta && meta.portrait && !meta.concealed) {
+    const img = document.createElement('img');
+    img.className = 'npc-avatar';
+    img.src = meta.portrait.startsWith('http') || meta.portrait.startsWith('/') ? meta.portrait : ('/icons/' + meta.portrait);
+    img.alt = '';
+    headerRow.appendChild(img);
+  }
   const nameEl = document.createElement('div');
   nameEl.className = 'npc-name';
   nameEl.textContent = name;
-  block.appendChild(nameEl);
+  headerRow.appendChild(nameEl);
+  if (meta && meta.concealed) {
+    const badge = document.createElement('span');
+    badge.className = 'npc-concealed-badge';
+    badge.textContent = '🎭 Concealed';
+    headerRow.appendChild(badge);
+  }
+  block.appendChild(headerRow);
 
   const cleaned = text
     .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '')
@@ -5260,6 +5614,13 @@ function _renderDiceBlockNow(text, isReplay) {
   const cleaned = text.trim()
     .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '')
     .replace(/\r/g, '');
+
+  // Game Feel (v2.5.0): Nat 20 golden shimmer & Nat 1 crimson shake
+  if (/\bnat(?:ural)?\s*20\b|critical hit|crit!/i.test(cleaned)) {
+    block.classList.add('nat20');
+  } else if (/\bnat(?:ural)?\s*1\b|critical fail|fumble/i.test(cleaned)) {
+    block.classList.add('nat1');
+  }
 
   // Icon on left based on roll type
   const iconName = _diceRollIcon(cleaned);
@@ -5449,12 +5810,18 @@ function renderReplayBatch(items) {
       return;
     }
     if (!item.text) return;
-    if (item.action) {
+    if (item.whisper || item.whisper_redacted) {
+      renderWhisperBlock(item.text, item.whisper_to, Boolean(item.whisper_redacted), true);
+    } else if (item.action) {
       renderActionBlock(item.action, item.text, true);
     } else if (item.player) {
       renderPlayerBlock(item.player, item.text, true);
     } else if (item.npc) {
-      renderNPCBlock(item.npc, item.text, true);
+      renderNPCBlock(item.npc, item.text, true, {
+        speaker_id: item.speaker_id,
+        portrait: item.portrait,
+        concealed: item.concealed,
+      });
     } else if (item.dice) {
       renderDiceBlock(item.text, true);
     } else if (item.tutor) {
@@ -7940,14 +8307,36 @@ function connect() {
       _setSidebarVisible(true);   // reset to visible for next campaign
       clearDisplay();
     }
+    if (payload.rollback) {
+      clearDisplay(() => {
+        if (payload.replay_batch) renderReplayBatch(payload.replay_batch);
+        _spawnFloatDelta('⏪ Rewound to Turn ' + (payload.rollback.turn || '?'), 'info');
+      });
+      if (payload.stats) _updateGameFeelFromStats(payload.stats);
+      return;
+    }
     if (payload.replay_batch) {
       renderReplayBatch(payload.replay_batch);
+    }
+    if (payload.stats) {
+      _updateGameFeelFromStats(payload.stats);
+      _refreshQuickChips();
+    }
+    if (payload.suggestions && Array.isArray(payload.suggestions)) {
+      _renderQuickChips(payload.suggestions.map(s => ({ label: s, action: s })));
+    }
+    if (payload.entropy) {
+      _renderEntropy(payload.entropy);
+    }
+    if ('battlemap' in payload) {
+      _renderBattlemap(payload.battlemap);
     }
     if (payload.replay) {
       renderReplay(payload.replay);  // legacy fallback
     }
     if (payload.scene) {
       applyScene(payload.scene);
+      _refreshQuickChips();
     }
     if (payload.sfx) {
       _playSfx(payload.sfx);
@@ -7963,12 +8352,18 @@ function connect() {
       renderXpBlock(payload.xp_award);
     }
     if (payload.text && !payload.inspiration_award && !payload.milestone_award && !payload.milestone_spend && !payload.xp_award) {
-      if (payload.action) {
+      if (payload.whisper || payload.whisper_redacted) {
+        renderWhisperBlock(payload.text, payload.whisper_to, Boolean(payload.whisper_redacted), false);
+      } else if (payload.action) {
         renderActionBlock(payload.action, payload.text);
       } else if (payload.player) {
         renderPlayerBlock(payload.player, payload.text);
       } else if (payload.npc) {
-        renderNPCBlock(payload.npc, payload.text);
+        renderNPCBlock(payload.npc, payload.text, false, {
+          speaker_id: payload.speaker_id,
+          portrait: payload.portrait,
+          concealed: payload.concealed,
+        });
       } else if (payload.dice) {
         renderDiceBlock(payload.text);
       } else if (payload.tutor) {
@@ -8726,6 +9121,211 @@ function _initDicePad() {
   }
   window._onDiceRequestCancelled = _onDiceRequestCancelled;
 }
+
+// ── v2.5.0: Game Feel Juice, Quick-Action Chips, Codex Drawer & Bubble Mode ──
+const _prevHpMap = {};
+function _spawnFloatDelta(label, kind) {
+  const el = document.createElement('div');
+  el.className = 'float-delta ' + (kind || 'info');
+  el.textContent = label;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1900);
+}
+
+function _updateGameFeelFromStats(stats) {
+  if (!stats || !Array.isArray(stats.players)) return;
+  let anyLow = false;
+  stats.players.forEach(p => {
+    if (!p || !p.name || !p.hp) return;
+    const cur = Number(p.hp.current);
+    const mx  = Math.max(1, Number(p.hp.max || 1));
+    if (Number.isFinite(cur)) {
+      if (cur / mx <= 0.25) anyLow = true;
+      const prev = _prevHpMap[p.name];
+      if (prev !== undefined && prev !== cur) {
+        const diff = cur - prev;
+        _spawnFloatDelta(p.name + ' ' + (diff > 0 ? '+' + diff : diff) + ' HP', diff > 0 ? 'heal' : 'dmg');
+      }
+      _prevHpMap[p.name] = cur;
+    }
+  });
+  const vig = document.getElementById('danger-vignette');
+  if (vig) vig.classList.toggle('active', anyLow);
+}
+
+function _renderQuickChips(chips) {
+  const wrap = document.getElementById('quick-chips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  (chips || []).slice(0, 4).forEach(c => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'quick-chip';
+    btn.textContent = c.label || c.action || '';
+    btn.addEventListener('click', () => {
+      const ta = document.getElementById('player-input-text');
+      if (ta) {
+        ta.value = c.action || c.label || '';
+        ta.focus();
+      }
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function _refreshQuickChips() {
+  const qp = new URLSearchParams(location.search);
+  const ch = qp.get('char') || qp.get('character') || '';
+  fetch('/suggested-actions' + (ch ? ('?char=' + encodeURIComponent(ch)) : ''))
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { if (d && Array.isArray(d.chips)) _renderQuickChips(d.chips); })
+    .catch(() => {});
+}
+
+(function _initV25UI() {
+  // Dialogue Bubbles toggle (persisted in localStorage)
+  const bubbleBtn = document.getElementById('bubble-mode-btn');
+  if (localStorage.getItem('dnd_dialogue_bubbles') === '1') {
+    document.body.classList.add('dialogue-bubbles');
+  }
+  if (bubbleBtn) {
+    bubbleBtn.addEventListener('click', () => {
+      const on = document.body.classList.toggle('dialogue-bubbles');
+      localStorage.setItem('dnd_dialogue_bubbles', on ? '1' : '0');
+    });
+  }
+
+  // Codex / Adventure Book drawer
+  const drawer = document.getElementById('codex-drawer');
+  const openBtn = document.getElementById('codex-btn');
+  const closeBtn = document.getElementById('codex-close');
+  const bodyEl = document.getElementById('codex-body');
+  let codexCache = null;
+  let activeTab = 'npcs';
+
+  function renderCodexTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll('.codex-tab').forEach(b => b.classList.toggle('active', b.dataset.codex === tab));
+    if (!bodyEl) return;
+    bodyEl.innerHTML = '';
+    const items = (codexCache && codexCache[tab]) || [];
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'codex-card-text';
+      empty.textContent = 'No discovered entries yet.';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    items.forEach(it => {
+      const card = document.createElement('div');
+      card.className = 'codex-card';
+      const title = document.createElement('div');
+      title.className = 'codex-card-title';
+      title.textContent = it.name + (it.role ? (' — ' + it.role) : '');
+      const txt = document.createElement('div');
+      txt.className = 'codex-card-text';
+      txt.textContent = it.summary || '';
+      card.appendChild(title);
+      card.appendChild(txt);
+      bodyEl.appendChild(card);
+    });
+  }
+
+  function loadCodex() {
+    fetch('/codex')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { codexCache = data; renderCodexTab(activeTab); })
+      .catch(() => {});
+  }
+
+  if (openBtn && drawer) {
+    openBtn.addEventListener('click', () => {
+      const isOpen = drawer.classList.toggle('open');
+      if (isOpen) loadCodex();
+    });
+  }
+  if (closeBtn && drawer) {
+    closeBtn.addEventListener('click', () => drawer.classList.remove('open'));
+  }
+  document.querySelectorAll('.codex-tab').forEach(btn => {
+    btn.addEventListener('click', () => renderCodexTab(btn.dataset.codex));
+  });
+
+  // Initial quick-action chips fetch
+  _refreshQuickChips();
+})();
+
+// ── v2.6.0: Entropy Meter & On-Demand 2D Tactical Battlemap Renderer ─────────
+function _renderEntropy(ent) {
+  const pill = document.getElementById('entropy-pill');
+  const lbl  = document.getElementById('entropy-label');
+  const fill = document.getElementById('entropy-bar-fill');
+  if (!pill || !lbl || !fill) return;
+  const val = Math.max(0, Math.min(100, Number(ent && ent.value || 0)));
+  const tier = (ent && ent.tier) || 'CALM';
+  pill.classList.toggle('visible', val > 0);
+  lbl.textContent = '🔥 ' + tier + ' ' + val + '%';
+  fill.style.width = val + '%';
+}
+
+let _lastBattlemap = null;
+function _renderBattlemap(bm) {
+  _lastBattlemap = bm;
+  const btn = document.getElementById('battlemap-btn');
+  const modal = document.getElementById('battlemap-modal');
+  const titleEl = document.getElementById('battlemap-title');
+  const wrap = document.getElementById('battlemap-svg-wrap');
+  if (!btn || !wrap) return;
+  if (!bm || !bm.active) {
+    btn.classList.remove('active');
+    if (modal) modal.classList.remove('open');
+    wrap.innerHTML = '';
+    return;
+  }
+  btn.classList.add('active');
+  if (titleEl) titleEl.textContent = '🗺️ ' + (bm.title || 'Tactical Battlemap') + ' (' + bm.width + '×' + bm.height + ')';
+
+  const cell = 34;
+  const w = Number(bm.width || 12), h = Number(bm.height || 10);
+  const svgW = w * cell, svgH = h * cell;
+  const terrainColors = {
+    wall: '#3f3f46', difficult: '#713f12', cover: '#475569',
+    water: '#0e7490', hazard: '#c2410c',
+  };
+  let cells = '';
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const tk = (bm.terrain && bm.terrain[x + ',' + y]) || 'normal';
+      const fill = terrainColors[tk] || '#1e1b29';
+      cells += '<rect x="' + (x * cell) + '" y="' + (y * cell) + '" width="' + cell + '" height="' + cell +
+               '" fill="' + fill + '" stroke="rgba(212,168,83,0.18)" stroke-width="1"/>';
+    }
+  }
+  let toks = '';
+  (bm.tokens || []).forEach(t => {
+    const cx = Number(t.x) * cell + cell / 2;
+    const cy = Number(t.y) * cell + cell / 2;
+    const col = t.kind === 'pc' ? '#3b82f6' : (t.kind === 'enemy' ? '#dc2626' : (t.kind === 'npc' ? '#10b981' : '#d97706'));
+    const initials = String(t.name || '?').slice(0, 2);
+    const tip = String(t.name || '') + (t.hp ? (' (' + t.hp + ')') : '');
+    toks += '<g><title>' + tip.replace(/[<>&]/g, '') + '</title>' +
+            '<circle cx="' + cx + '" cy="' + cy + '" r="13" fill="' + col + '" stroke="#fef3c7" stroke-width="1.5"/>' +
+            '<text x="' + cx + '" y="' + (cy + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">' +
+            initials.replace(/[<>&]/g, '') + '</text></g>';
+  });
+  wrap.innerHTML = '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH +
+                   '" style="border:1px solid rgba(212,168,83,0.4);border-radius:6px;display:block">' +
+                   cells + toks + '</svg>';
+}
+
+(function _initV26UI() {
+  const btn = document.getElementById('battlemap-btn');
+  const modal = document.getElementById('battlemap-modal');
+  const closeBtn = document.getElementById('battlemap-close');
+  if (btn && modal) btn.addEventListener('click', () => modal.classList.add('open'));
+  if (closeBtn && modal) closeBtn.addEventListener('click', () => modal.classList.remove('open'));
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
+})();
 </script>
 </body>
 </html>

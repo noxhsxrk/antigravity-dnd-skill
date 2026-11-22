@@ -31,6 +31,43 @@ from runtime_paths import rt          # writable runtime dir (update-safe)
 QUEUE_FILE = rt(".input_queue")
 NARRATION_TARGET = rt("narration_target")  # set by the display's Narration slider
 ROLL_PREFS = rt("roll_prefs.json")         # per-character roll overrides (Settings → Rolls)
+STATS_FILE = rt(".stats.json")             # active campaign metadata
+CAMP_FILE  = rt(".campaign")               # canonical active campaign marker
+
+
+def _active_campaign_name():
+    try:
+        if os.path.exists(CAMP_FILE):
+            name = open(CAMP_FILE, encoding="utf-8").read().strip()
+            if name:
+                return name
+    except Exception:
+        pass
+    try:
+        if os.path.exists(STATS_FILE):
+            import json
+            with open(STATS_FILE, encoding="utf-8") as f:
+                data = json.load(f)
+            return (data.get("campaign") or "").strip() or None
+    except Exception:
+        pass
+    return None
+
+
+def _lorebook_directive(action_text: str):
+    """Auto-inject matching lorebook/NPC/world entries for the DM (DiceFrame pattern)."""
+    camp = _active_campaign_name()
+    if not camp or not action_text.strip():
+        return ""
+    try:
+        scripts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts"))
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import lorebook
+        matches = lorebook.scan_lore(camp, action_text, budget=1400, include_hidden=True)
+        return lorebook.format_scan_block(matches)
+    except Exception:
+        return ""
 
 
 def _narration_directive():
@@ -67,7 +104,7 @@ try:
             content = f.read().strip()
         os.remove(QUEUE_FILE)
         if content:
-            for d in (_roll_directives(), _narration_directive()):
+            for d in (_roll_directives(), _narration_directive(), _lorebook_directive(content)):
                 if d:
                     print(d)
             print(content)

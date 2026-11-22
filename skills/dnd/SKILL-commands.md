@@ -2,7 +2,7 @@
 
 Full step-by-step procedures for all `/dm:dnd` slash commands. Load this file at `/dm:dnd load` or before executing any slash command.
 
-> **Path note:** commands below use `${CLAUDE_SKILL_DIR}` for the skill directory. This file is read verbatim, so that token is **not** auto-expanded here — substitute the absolute skill-dir path (from `SKILL.md`) before running any command, or it will fail with a broken `/scripts/…` path.
+> **Path note:** All helper scripts and templates are located in `${CLAUDE_SKILL_DIR}/` and can be invoked directly with the absolute commands shown below.
 
 ---
 
@@ -904,17 +904,17 @@ Toggle tutor/learning mode. Write `tutor_mode: true/false` to `state.md` under `
 
 ## `/dm:dnd autorun on` / `/dm:dnd autorun off`
 
-Toggle autorun (taxi) mode — Antigravity & Claude Code drive the turn loop automatically when players submit via the display companion (`http://localhost:5001` or ngrok).
+Toggle autorun (taxi) mode — Antigravity drives the turn loop automatically when players submit via the display companion (`http://localhost:5001` or ngrok).
 
 **On:**
 1. Write `autorun: true` to `state.md → ## Session Flags`.
 2. Confirm to the DM: *"Autorun enabled. Players submit via the display; I'll pick up each action automatically. Send me a message at any time to take control of a turn."*
 3. If the user specified an interval (e.g. `/dm:dnd autorun on 45`), write `autorun_interval: 45` to `state.md → ## Session Flags`. Default is 60 if omitted.
-4. Launch `autorun_wait.py`:
-   - In Antigravity: launch as an asynchronous background task (`WaitMsBeforeAsync: 500`):
-     `python3 ${CLAUDE_SKILL_DIR}/display/autorun_wait.py`
-     When the player submits on the web, Antigravity receives the `<SYSTEM_MESSAGE>` with the action and wakes up automatically.
-   - In Claude Code: run as a blocking bash call at the end of the turn.
+4. Launch `autorun_wait.py` as an asynchronous background task (`WaitMsBeforeAsync: 500`):
+   ```bash
+   python3 ${CLAUDE_SKILL_DIR}/display/autorun_wait.py
+   ```
+   When the player submits on the web, Antigravity will automatically be woken up with the `<SYSTEM_MESSAGE>` containing the player's action.
 
 The display shows a pie-clock countdown draining from full to empty over the interval. Green pulse = actively waiting. Configurable via `autorun_interval: N` in state.md (default 60 seconds).
 
@@ -951,3 +951,79 @@ Toggle the behind-the-scenes continuity checkpoint. Writes `autosave: on|off` to
 **Off:** write `autosave: off`. Confirm: *"Autosave off — I'll only persist on /dm:dnd save and /dm:dnd end."*
 
 **Why turn-count, not a context percentage:** the model cannot see its own context-usage level, so there is no reliable "save at 80% full" trigger from inside the skill. The cadence is keyed on turns instead, tuned to fire well before auto-compaction.
+
+---
+
+## v2.5.0 Commands
+
+## `/dm:dnd undo [turn-number]`
+
+Atomically roll back the campaign to the previous turn snapshot (or a specific turn number). Restores `state.md`, `world.md`, `npcs*.md`, `session-log.md`, `graph.json`, `tracker.json`, `lorebook.json`, `.economy_ledger.json`, all `characters/*.md`, and refreshes connected display browsers.
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/turn_snapshot.py -c <campaign> list
+python3 ${CLAUDE_SKILL_DIR}/scripts/turn_snapshot.py -c <campaign> undo [--to N]
+```
+
+## `/dm:dnd shop <buy|sell|gold>`
+
+Execute atomic currency and inventory transactions via `economy.py` (refuses negative balances, logs receipts to `.economy_ledger.json`):
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/economy.py -c <campaign> buy --char "<Name>" --item "<Item>" --cost 50gp
+python3 ${CLAUDE_SKILL_DIR}/scripts/economy.py -c <campaign> sell --char "<Name>" --item "<Item>" --value 5gp
+python3 ${CLAUDE_SKILL_DIR}/scripts/economy.py -c <campaign> gold --char "<Name>" --delta -10gp --reason "Inn room"
+```
+
+## `/dm:dnd lorebook <scan|add|import|export>`
+
+Manage campaign lorebooks and Character Card v3 (`chara_card_v3`) / Lorebook v3 (`lorebook_v3`) files:
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> add --name "Lantern Bridge" --keys "bridge,lantern" --content "..." [--dm-only]
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> import-lorebook <file.json>
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> export-lorebook <out.json>
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> import-card <card.json>
+python3 ${CLAUDE_SKILL_DIR}/scripts/lorebook.py -c <campaign> export-card --char "<Name>" <out.json>
+```
+
+## `/dm:dnd chain <new-campaign-name>`
+
+Chain a completed campaign into a sequel chapter in the same world — carries forward `world.md`, `npcs*.md`, `graph.json`, `lorebook.json`, faction standings, and party characters (healed via Long Rest by default):
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/campaign_chain.py --from <old-campaign> --to <new-campaign> [--title "Book II"]
+```
+
+---
+
+## v2.6.0 Commands
+
+## `/dm:dnd encounter <biome> [difficulty]`
+Generate a balanced 5e XP-budget encounter from SRD monsters for the current biome and party level:
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/encounter_gen.py --biome <biome> --party-level <L> --party-size <N> --difficulty <easy|medium|hard|deadly>
+```
+
+## `/dm:dnd map <init|place|move|terrain|clear>`
+Open and control the on-demand 2D tactical battlemap on the Display Companion (5ft squares, difficult terrain, walls, cover, diagonal costs):
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/battlemap.py -c <campaign> init --width 12 --height 10 --title "<Encounter>"
+python3 ${CLAUDE_SKILL_DIR}/scripts/battlemap.py -c <campaign> place --name "<Name>" --x 2 --y 5 --kind pc|enemy --hp 20/20
+python3 ${CLAUDE_SKILL_DIR}/scripts/battlemap.py -c <campaign> move --name "<Name>" --x 5 --y 5 --speed 30
+python3 ${CLAUDE_SKILL_DIR}/scripts/battlemap.py -c <campaign> clear
+```
+
+## `/dm:dnd travel <destination> [foot|horse|wagon|ship]`
+Compute deterministic distance, travel days, biome crossings, and encounter checks via `world_map.py`:
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/world_map.py -c <campaign> route --to "<Place>" --mode foot
+python3 ${CLAUDE_SKILL_DIR}/scripts/world_map.py -c <campaign> travel --to "<Place>" --mode foot
+```
+
+## `/dm:dnd entropy <+N|-N|status|reset>`
+Adjust or inspect the dungeon/world Tension & Noise Meter (`0–100`) and push updates to the Display Companion:
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/entropy.py -c <campaign> add --delta 15 --reason "Loud combat"
+python3 ${CLAUDE_SKILL_DIR}/scripts/entropy.py -c <campaign> status
+```
